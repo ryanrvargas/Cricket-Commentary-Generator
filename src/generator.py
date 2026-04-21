@@ -1,54 +1,35 @@
-"""
-generator.py
-------------
-This module generates short, template-based cricket commentary lines for individual events.
-It provides the main function for producing a commentary string given a structured event dictionary
-and a fixed event type label. The design allows for future integration of retrieved example commentary
-lines, but currently prioritizes template-based output for factual accuracy.
-
-Functions:
-    - generate_commentary(event, event_type, retrieved_examples=None):
-        Generates a commentary line for a given event and event type.
-    - _pick(examples, fallback=""): Utility to pick a random example or fallback.
-
-Typical usage:
-    commentary = generate_commentary(event, event_type, examples)
-"""
 import random
 
 
-def _pick(examples, fallback=""):
+def _choose(options):
+    return random.choice(options)
+
+
+def _context_tail(context):
     """
-    Pick one example phrase from a list, or return the fallback if the list is empty.
-
-    Args:
-        examples (list): List of example strings to choose from.
-        fallback (str): String to return if examples is empty.
-
-    Returns:
-        str: A randomly chosen example, or the fallback string.
+    Add a short live-match context phrase when available.
     """
-    if not examples:
-        return fallback
-    return random.choice(examples)
+    if not context:
+        return ""
+
+    score = f"{context['innings_score']}/{context['innings_wickets']}"
+
+    if context.get("is_end_of_over"):
+        return f" End of the over, {score}."
+
+    if context.get("wickets_lost_on_ball") == 1:
+        return f" The score is now {score}."
+
+    if context.get("runs_on_ball", 0) >= 4:
+        return f" That moves them to {score}."
+
+    if context.get("runs_on_ball", 0) > 0:
+        return f" They move to {score}."
+
+    return f" Still {score}."
 
 
-def generate_commentary(event, event_type, retrieved_examples=None):
-    """
-    Generate a short commentary line for a single cricket event.
-
-    This function uses a set of templates to produce a commentary line based on the event type
-    and event details. Optionally, retrieved example commentary lines can be provided for future
-    use, but templates are always used to ensure the output is grounded in the event data.
-
-    Args:
-        event (dict): Dictionary containing event details (e.g., batter, bowler, player_dismissed).
-        event_type (str): The fixed event label (e.g., 'boundary_four', 'wicket_bowled').
-        retrieved_examples (list, optional): List of example commentary lines for the event type.
-
-    Returns:
-        str: A generated commentary line for the event.
-    """
+def generate_commentary(event, event_type, retrieved_examples=None, context=None):
     if retrieved_examples is None:
         retrieved_examples = []
 
@@ -57,42 +38,119 @@ def generate_commentary(event, event_type, retrieved_examples=None):
     player_out = event.get("player_dismissed", batter)
 
     if event_type == "dot_ball":
-        return f"Good delivery from {bowler}. {batter} cannot score."
+        line = _choose([
+            f"Good delivery from {bowler}. {batter} cannot score.",
+            f"{bowler} keeps it tight, and {batter} gets no run.",
+            f"No run. {batter} is beaten for scoring options by {bowler}.",
+            f"{batter} can only defend it. Dot ball."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "single":
-        return f"{batter} works it away for a single."
+        line = _choose([
+            f"{batter} works it away for a single.",
+            f"Just one for {batter}.",
+            f"{batter} picks up a single and keeps the strike moving.",
+            f"Tapped away by {batter} for one."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "double":
-        return f"{batter} comes back for two."
+        line = _choose([
+            f"{batter} comes back for two.",
+            f"Good running. {batter} collects a couple.",
+            f"That is nicely placed, and they get two.",
+            f"Two runs taken by {batter}."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "triple":
-        return f"{batter} places it well and they run three."
+        line = _choose([
+            f"{batter} places it well and they run three.",
+            f"That is excellent placement. {batter} gets three.",
+            f"They come back for three, well run by the batters."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "boundary_four":
-        return f"Four runs. {batter} finds the boundary."
+        line = _choose([
+            f"Four runs. {batter} finds the boundary.",
+            f"{batter} drives it away for four.",
+            f"That races to the fence. Four for {batter}.",
+            f"Beautifully timed by {batter}, and that is four."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "boundary_six":
-        return f"Six. {batter} sends it over the ropes."
+        line = _choose([
+            f"Six. {batter} sends it over the ropes.",
+            f"{batter} launches it for six.",
+            f"That is huge. {batter} clears the boundary.",
+            f"Straight into the stands. Six runs."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "wicket_bowled":
-        return f"Bowled him. {player_out} is gone, and {bowler} strikes."
+        line = _choose([
+            f"Bowled him. {player_out} is gone, and {bowler} strikes.",
+            f"{bowler} knocks him over. {player_out} has to depart.",
+            f"Cleaned up. {player_out} is bowled.",
+            f"What a ball. {player_out} is out bowled."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "wicket_caught":
-        return f"Taken. {player_out} is out caught off {bowler}."
+        line = _choose([
+            f"Taken. {player_out} is out caught off {bowler}.",
+            f"{player_out} holes out, and {bowler} gets the wicket.",
+            f"Caught. {player_out} has to go.",
+            f"{bowler} gets the breakthrough, and {player_out} is caught."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "wicket_lbw":
-        return f"That is out lbw. {player_out} has to go."
+        line = _choose([
+            f"That is out lbw. {player_out} has to go.",
+            f"Huge shout, and given. {player_out} is trapped lbw.",
+            f"{player_out} is out in front. LBW.",
+            f"Straight enough, and {player_out} is gone lbw."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "run_out":
-        return f"Run out. {player_out} is short of the crease."
+        line = _choose([
+            f"Run out. {player_out} is short of the crease.",
+            f"Direct hit, and {player_out} is gone.",
+            f"{player_out} cannot make the ground. Run out.",
+            f"Sharp fielding brings about the run out of {player_out}."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "wide":
-        return f"Wide ball. {bowler} sprays it too far outside."
+        line = _choose([
+            f"Wide ball. {bowler} sprays it too far outside.",
+            f"That is called wide.",
+            f"{bowler} loses the line there, and it is a wide.",
+            f"Too wide to play at. Extra run conceded."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "no_ball":
-        return f"No-ball called against {bowler}."
+        line = _choose([
+            f"No-ball called against {bowler}.",
+            f"{bowler} has overstepped. No-ball.",
+            f"That will be a no-ball.",
+            f"Free run for the batting side as {bowler} is called for a no-ball."
+        ])
+        return line + _context_tail(context)
 
     if event_type == "bye_or_legbye":
-        return "They pick up extras, not off the bat."
+        line = _choose([
+            "They pick up extras, not off the bat.",
+            "That will go down as extras.",
+            "Not from the bat, but they still get a run.",
+            "Extras added to the total."
+        ])
+        return line + _context_tail(context)
 
-    return f"{batter} faces {bowler}, and the play results in {event_type}."
+    return f"{batter} faces {bowler}, and the play results in {event_type}." + _context_tail(context)
