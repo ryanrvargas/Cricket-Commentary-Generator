@@ -45,7 +45,6 @@ def run_match_demo(match_path, commentary_csv_path, max_events=None):
 
         event_type = classify_event(event)
         examples = get_commentary_examples(commentary_bank, event_type, k=3)
-        commentary = generate_commentary(event, event_type, examples, context)
 
         runs_on_ball = event["runs_off_bat"] + event["extras"]
         wickets_lost_on_ball = 1 if event["wicket_type"] else 0
@@ -61,6 +60,8 @@ def run_match_demo(match_path, commentary_csv_path, max_events=None):
             innings_wickets,
         )
 
+        commentary = generate_commentary(event, event_type, examples, context)
+        
         print(
             f"Innings {event['innings']} | "
             f"{event['over']}.{event['ball_in_over']} | "
