@@ -4,18 +4,23 @@
 
 import re
 import pandas as pd
+import html
 
 from event_types import EVENT_TYPES
 
 
 def _clean_text(text):
     """
-    Normalize whitespace and return a stripped string.
+    Normalize whitespace, strip HTML tags/entities, and return a clean string.
     """
     if text is None:
         return ""
-    return re.sub(r"\s+", " ", str(text)).strip()
 
+    text = html.unescape(str(text))
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+
+    return text
 
 def _extract(pattern, text, default=""):
     """

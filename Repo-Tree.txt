@@ -1,0 +1,35 @@
+C:.
+│   .gitattributes
+│   .gitignore
+│   
+├───raw
+│       1527574.json
+│       1527575.json
+│       1527576.json
+│       1529145.json
+│       1529266.json
+│       1529267.json
+│       README.txt
+│       test.csv
+│       train.csv
+│       validation.csv
+│       
+└───src
+    │   classify_event.py
+    │   event_types.py
+    │   generator.py
+    │   load_commentary.py
+    │   load_events.py
+    │   retriever.py
+    │   test_generator.py
+    │   test_loader.py
+    │   test_retriever.py
+    │   
+    └───__pycache__
+            classify_event.cpython-312.pyc
+            event_types.cpython-312.pyc
+            generator.cpython-312.pyc
+            load_commentary.cpython-312.pyc
+            load_events.cpython-312.pyc
+            retriever.cpython-312.pyc
+            
