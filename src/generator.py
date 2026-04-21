@@ -1,9 +1,32 @@
+"""
+generator.py
+------------
+This module generates short, template-based cricket commentary lines for individual events.
+It provides the main function for producing a commentary string given a structured event dictionary
+and a fixed event type label. The design allows for future integration of retrieved example commentary
+lines, but currently prioritizes template-based output for factual accuracy.
+
+Functions:
+    - generate_commentary(event, event_type, retrieved_examples=None):
+        Generates a commentary line for a given event and event type.
+    - _pick(examples, fallback=""): Utility to pick a random example or fallback.
+
+Typical usage:
+    commentary = generate_commentary(event, event_type, examples)
+"""
 import random
 
 
 def _pick(examples, fallback=""):
     """
-    Pick one example phrase if available, otherwise return the fallback.
+    Pick one example phrase from a list, or return the fallback if the list is empty.
+
+    Args:
+        examples (list): List of example strings to choose from.
+        fallback (str): String to return if examples is empty.
+
+    Returns:
+        str: A randomly chosen example, or the fallback string.
     """
     if not examples:
         return fallback
@@ -12,11 +35,19 @@ def _pick(examples, fallback=""):
 
 def generate_commentary(event, event_type, retrieved_examples=None):
     """
-    Generate one short commentary line for a single cricket event.
+    Generate a short commentary line for a single cricket event.
 
-    This first version is template-based. Retrieved examples are accepted
-    for future use, but templates stay in control so the output remains
-    factually grounded in the event row.
+    This function uses a set of templates to produce a commentary line based on the event type
+    and event details. Optionally, retrieved example commentary lines can be provided for future
+    use, but templates are always used to ensure the output is grounded in the event data.
+
+    Args:
+        event (dict): Dictionary containing event details (e.g., batter, bowler, player_dismissed).
+        event_type (str): The fixed event label (e.g., 'boundary_four', 'wicket_bowled').
+        retrieved_examples (list, optional): List of example commentary lines for the event type.
+
+    Returns:
+        str: A generated commentary line for the event.
     """
     if retrieved_examples is None:
         retrieved_examples = []

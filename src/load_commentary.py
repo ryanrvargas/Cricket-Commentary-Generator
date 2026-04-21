@@ -1,6 +1,25 @@
-# loads the Kaggle train.cvs
-# Parses the single rows column into usable fields
-# Maps each commentary line into your fixed event labels
+
+"""
+load_commentary.py
+------------------
+This module loads, parses, and processes cricket commentary data from the Kaggle CSV dataset.
+It provides utilities to:
+    - Parse the single 'rows' column in the CSV into structured fields.
+    - Map each commentary line into a fixed set of event labels (see event_types.py).
+    - Build a commentary bank for retrieval, grouped by event type.
+
+Typical pipeline usage:
+    1. Use load_commentary_rows(csv_path) to parse the CSV into structured rows with event labels.
+    2. Use build_commentary_bank(csv_path) to group commentary lines by event type for retrieval.
+
+Key functions:
+    - parse_commentary_row: Parses a raw commentary row string into a structured dictionary.
+    - map_commentary_to_event_type: Maps a parsed row to a fixed event label.
+    - load_commentary_rows: Loads and parses the CSV, returning rows with event labels.
+    - build_commentary_bank: Builds a dictionary of commentary examples grouped by event type.
+
+Example event type labels: 'boundary_four', 'wicket_bowled', 'single', 'wide', etc.
+"""
 
 import re
 import pandas as pd
@@ -12,6 +31,12 @@ from event_types import EVENT_TYPES
 def _clean_text(text):
     """
     Normalize whitespace, strip HTML tags/entities, and return a clean string.
+
+    Args:
+        text (str or None): The text to clean.
+
+    Returns:
+        str: Cleaned text with HTML removed and whitespace normalized.
     """
     if text is None:
         return ""
@@ -24,8 +49,15 @@ def _clean_text(text):
 
 def _extract(pattern, text, default=""):
     """
-    Extract the first regex group from text. If no match is found,
-    return the default value.
+    Extract the first regex group from text. If no match is found, return the default value.
+
+    Args:
+        pattern (str): Regex pattern with one group to extract.
+        text (str): Text to search.
+        default (str): Value to return if no match is found.
+
+    Returns:
+        str: Extracted and cleaned group, or default if not found.
     """
     match = re.search(pattern, text, flags=re.IGNORECASE | re.DOTALL)
     if match:
@@ -36,6 +68,13 @@ def _extract(pattern, text, default=""):
 def _to_int(value, default=0):
     """
     Safely convert a parsed string value to int.
+
+    Args:
+        value: Value to convert (str, float, int, etc.).
+        default (int): Value to return if conversion fails.
+
+    Returns:
+        int: Converted integer, or default if conversion fails.
     """
     try:
         return int(float(str(value).strip()))
@@ -45,11 +84,16 @@ def _to_int(value, default=0):
 
 def parse_commentary_row(raw_row):
     """
-    Parse one Kaggle commentary row from the single 'rows' column into
-    a structured dictionary.
+    Parse one Kaggle commentary row from the single 'rows' column into a structured dictionary.
 
     The dataset stores metadata and commentary in one long text string:
-    <start_of_table> ... <end_of_table> commentary ...
+        <start_of_table> ... <end_of_table> commentary ...
+
+    Args:
+        raw_row (str): The raw text from the 'rows' column.
+
+    Returns:
+        dict: Parsed fields including play_type, teams, runs, wickets, and commentary.
     """
     raw_row = str(raw_row)
 
@@ -91,6 +135,12 @@ def map_commentary_to_event_type(parsed_row):
 
     This does NOT define match truth. It only groups commentary lines into
     useful buckets for later retrieval.
+
+    Args:
+        parsed_row (dict): Parsed commentary row from parse_commentary_row.
+
+    Returns:
+        str: Event type label (e.g., 'boundary_four', 'wicket_bowled', etc.).
     """
     play_type = parsed_row["play_type"]
     total_runs = parsed_row["total_runs"]
@@ -138,8 +188,13 @@ def map_commentary_to_event_type(parsed_row):
 
 def load_commentary_rows(csv_path):
     """
-    Load the Kaggle commentary CSV and return a list of parsed commentary rows,
-    each with an added 'event_type' field.
+    Load the Kaggle commentary CSV and return a list of parsed commentary rows, each with an added 'event_type' field.
+
+    Args:
+        csv_path (str): Path to the Kaggle commentary CSV file.
+
+    Returns:
+        list of dict: Each dict is a parsed row with an 'event_type' key.
     """
     df = pd.read_csv(csv_path)
 
@@ -160,12 +215,17 @@ def build_commentary_bank(csv_path):
     """
     Build a commentary bank grouped by event type.
 
-    Returns a dictionary like:
-    {
-        "boundary_four": [...],
-        "wicket_caught": [...],
-        ...
-    }
+    Args:
+        csv_path (str): Path to the Kaggle commentary CSV file.
+
+    Returns:
+        dict: Dictionary mapping event type labels to lists of commentary strings.
+            Example:
+                {
+                    "boundary_four": [...],
+                    "wicket_caught": [...],
+                    ...
+                }
     """
     parsed_rows = load_commentary_rows(csv_path)
 

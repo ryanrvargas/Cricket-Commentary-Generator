@@ -1,3 +1,23 @@
+"""
+load_events.py
+--------------
+
+This module provides utilities for loading and flattening cricket match event data from Cricsheet JSON files.
+
+Main functionality:
+- Reads a Cricsheet match JSON file.
+- Flattens each delivery into a simple event dictionary for downstream processing (e.g., classification, commentary generation).
+- Handles missing or blank numeric values robustly.
+- Tracks both raw delivery order and legal ball number within each over, accounting for extras (wides, no-balls).
+
+Typical usage:
+    events = load_match_events('raw/1527574.json')
+    # events is a list of dicts, one per delivery
+
+Author: [Your Name]
+Date: 2026-04-21
+"""
+
 import json
 from pathlib import Path
 
@@ -15,12 +35,34 @@ def _safe_int(value):
 
 def load_match_events(json_path):
     """
-    Load one Cricsheet JSON match file and flatten every delivery into a
-    simple event dictionary for downstream classification and generation.
+        Load and flatten all deliveries from a Cricsheet JSON match file.
 
-    Each flattened row includes:
-    - raw sequence order within the over (delivery_index)
-    - cricket-style legal ball number within the over (ball_in_over)
+        Args:
+            json_path (str or Path): Path to a Cricsheet match JSON file.
+
+        Returns:
+            list of dict: Each dict represents a single delivery (event) with fields:
+                - match_id: str, unique match identifier (from filename)
+                - innings: int, 1-based innings number
+                - batting_team: str, name of batting team
+                - over: int, over number within the innings
+                - delivery_index: int, raw sequence order within the over (1-based)
+                - ball_in_over: int, legal ball number (ignores wides/noballs)
+                - batter: str, name of batter
+                - bowler: str, name of bowler
+                - non_striker: str, name of non-striker
+                - runs_off_bat: int, runs scored off the bat
+                - extras: int, total extras for the delivery
+                - wides: int, wides bowled (0 if none)
+                - noballs: int, no-balls bowled (0 if none)
+                - byes: int, byes run (0 if none)
+                - legbyes: int, leg byes run (0 if none)
+                - wicket_type: str, type of wicket (if any, else empty)
+                - player_dismissed: str, name of dismissed player (if any, else empty)
+
+        Notes:
+            - Wides and no-balls do not increment the legal ball number (ball_in_over).
+            - Only the first wicket in a delivery is recorded (if multiple, only first is used).
     """
     json_path = Path(json_path)
 
