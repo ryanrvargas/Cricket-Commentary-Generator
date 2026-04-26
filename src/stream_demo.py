@@ -71,9 +71,6 @@ def run_match_demo(match_path, commentary_csv_path, max_events=None):
         print(f"Runs on ball: {context['runs_on_ball']}")
         print(f"Commentary: {commentary}")
 
-        if context["is_end_of_over"]:
-            print(f"End of over {event['over']}: {context['innings_score']}/{context['innings_wickets']}")
-
         print("-" * 70)
 
 
