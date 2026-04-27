@@ -11,7 +11,7 @@ bank = build_commentary_bank("raw/train.csv")
 
 for event in events[:12]:
     label = classify_event(event)
-    examples = get_commentary_examples(bank, label, k=3)
+    examples = get_commentary_examples(bank, label, event=event, k=3)
     commentary = generate_commentary(event, label, examples)
 
     print(

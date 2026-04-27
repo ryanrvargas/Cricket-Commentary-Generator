@@ -44,7 +44,7 @@ def run_match_demo(match_path, commentary_csv_path, max_events=None):
             print(f"\n=== Start of Innings {current_innings} ===")
 
         event_type = classify_event(event)
-        examples = get_commentary_examples(commentary_bank, event_type, k=3)
+        examples = get_commentary_examples(commentary_bank, event_type, event=event, k=3)
 
         runs_on_ball = event["runs_off_bat"] + event["extras"]
         wickets_lost_on_ball = 1 if event["wicket_type"] else 0
