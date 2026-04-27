@@ -1,74 +1,75 @@
 """
 retriever.py
 ------------
+Retrieval logic for commentary examples.
 
-This module provides functions to retrieve example commentary lines for cricket events from a commentary bank.
-It supports random sampling of examples for a given event type, with fallback logic if no examples are found.
-
-Functions:
-- get_commentary_examples: Retrieve up to k random examples for a specific event type.
-- get_commentary_examples_with_fallback: Retrieve up to k examples for an event type, falling back to 'other' if none exist.
-
-Typical usage:
-    examples = get_commentary_examples(commentary_bank, 'bowled', k=3)
-    fallback_examples = get_commentary_examples_with_fallback(commentary_bank, 'run_out', k=2)
+This version supports:
+- simple event-type filtering
+- in-house TF-IDF ranking within an event bucket
 """
 
-import random
+from tfidf_vectorizer import TfidfVectorizerInHouse, cosine_similarity_sparse
 
 
-def get_commentary_examples(commentary_bank, event_type, k=3, seed=42):
+def build_query_from_event(event, event_type):
     """
-    Retrieve up to k random commentary examples for a given event type.
+    Build a small text query from event data for retrieval.
+    """
+    batter = event.get("batter", "")
+    bowler = event.get("bowler", "")
+    runs_off_bat = event.get("runs_off_bat", 0)
+    wicket_type = event.get("wicket_type", "")
+    over = event.get("over", "")
 
-    Args:
-        commentary_bank (dict): Dictionary mapping event types (str) to lists of commentary strings.
-        event_type (str): The event type to retrieve examples for (e.g., 'bowled', 'run_out').
-        k (int, optional): Maximum number of examples to return. Defaults to 3.
-        seed (int, optional): Random seed for reproducibility. Defaults to 42.
+    parts = [
+        event_type,
+        batter,
+        bowler,
+        str(runs_off_bat),
+        wicket_type,
+        f"over {over}",
+    ]
 
-    Returns:
-        list of str: Up to k commentary examples for the event type. If fewer than k exist, returns all. If event type is not found, returns an empty list.
+    return " ".join(str(part) for part in parts if str(part).strip())
 
-    Example:
-        >>> get_commentary_examples({'bowled': ['Bowled him!', 'Clean bowled!']}, 'bowled', k=1)
-        ['Bowled him!']
+
+def get_commentary_examples(commentary_bank, event_type, event=None, k=3):
+    """
+    Retrieve up to k ranked commentary examples for a given event type.
+
+    If event is provided, rank by in-house TF-IDF similarity.
+    If event is missing, just return the first k examples from that bucket.
     """
     examples = commentary_bank.get(event_type, [])
 
     if not examples:
-        return []  # No examples for this event type
+        return []
 
-    if len(examples) <= k:
-        return examples  # Return all if not enough to sample
+    if event is None:
+        return examples[:k]
 
-    rng = random.Random(seed)
-    return rng.sample(examples, k)  # Randomly sample k examples
+    query = build_query_from_event(event, event_type)
+
+    vectorizer = TfidfVectorizerInHouse()
+    doc_vectors = vectorizer.fit_transform(examples)
+    query_vector = vectorizer.transform_one(query)
+
+    scored = []
+    for example, vec in zip(examples, doc_vectors):
+        score = cosine_similarity_sparse(query_vector, vec)
+        scored.append((score, example))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [example for _, example in scored[:k]]
 
 
-def get_commentary_examples_with_fallback(commentary_bank, event_type, k=3, seed=42):
+def get_commentary_examples_with_fallback(commentary_bank, event_type, event=None, k=3):
     """
-    Retrieve up to k commentary examples for a given event type, with fallback.
-
-    If no examples exist for the requested event type, fall back to the 'other' event type.
-
-    Args:
-        commentary_bank (dict): Dictionary mapping event types (str) to lists of commentary strings.
-        event_type (str): The event type to retrieve examples for.
-        k (int, optional): Maximum number of examples to return. Defaults to 3.
-        seed (int, optional): Random seed for reproducibility. Defaults to 42.
-
-    Returns:
-        list of str: Up to k commentary examples for the event type, or for 'other' if none exist.
-
-    Example:
-        >>> get_commentary_examples_with_fallback({'other': ['Generic comment.']}, 'rare_event')
-        ['Generic comment.']
+    Retrieve ranked examples, falling back to 'other' if needed.
     """
-    examples = get_commentary_examples(commentary_bank, event_type, k=k, seed=seed)
+    examples = get_commentary_examples(commentary_bank, event_type, event=event, k=k)
 
     if examples:
         return examples
 
-    # Fallback to 'other' event type if none found
-    return get_commentary_examples(commentary_bank, "other", k=k, seed=seed)
+    return get_commentary_examples(commentary_bank, "other", event=event, k=k)
