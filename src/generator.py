@@ -40,39 +40,81 @@ def _normalize_example(text):
     return text
 
 
+def _example_text(retrieved_examples):
+    """
+    Use the first retrieved example as the style source.
+
+    The retriever already ranks examples, so the first item should be the most
+    relevant style example for the current event.
+    """
+    if not retrieved_examples:
+        return ""
+    return _normalize_example(retrieved_examples[0])
+
+
+def _style_key(event_type, retrieved_examples):
+    """
+    Return a small style category instead of a sentence fragment.
+
+    This prevents shaky phrasing like:
+        "drives it away for four with a controlled pull"
+
+    The generator should pick one coherent template family, not choose a base
+    template and then bolt on a second shot type afterward.
+    """
+    example = _example_text(retrieved_examples)
+    if not example:
+        return "neutral"
+
+    if event_type == "boundary_four":
+        # Edge comes first because an edged four is a very different image from
+        # a controlled shot like a drive, pull, cut, or flick.
+        if "edge" in example or "edged" in example:
+            return "edge"
+        if "drive" in example or "drives" in example or "driven" in example:
+            return "drive"
+        if "cut" in example:
+            return "cut"
+        if "flick" in example or "pads" in example or "pad" in example:
+            return "flick"
+        if "pull" in example or "pulled" in example:
+            return "pull"
+        return "timing"
+
+    if event_type == "boundary_six":
+        if "pull" in example or "pulled" in example:
+            return "pull"
+        if "loft" in example or "lofted" in example:
+            return "loft"
+        if "straight" in example:
+            return "straight"
+        if "stands" in example or "crowd" in example:
+            return "stands"
+        return "power"
+
+    if event_type == "wicket_caught":
+        if "top edge" in example:
+            return "top_edge"
+        if "edge" in example or "edged" in example or "snick" in example:
+            return "edge"
+        if "holes out" in example or "holed out" in example:
+            return "holes_out"
+        return "safe_catch"
+
+    return "neutral"
+
+
 def _style_hint(event_type, retrieved_examples):
     """
     Use the top retrieved example to add a SMALL style hint.
-    This should influence wording, not facts.
+
+    Boundary shots are intentionally excluded here. They are handled by
+    _boundary_four_line and _boundary_six_line so the shot type stays coherent.
     """
     if not retrieved_examples:
         return ""
 
-    example = _normalize_example(retrieved_examples[0])
-
-    if event_type == "boundary_four":
-        if "drive" in example:
-            return " with a crisp drive"
-        if "cut" in example:
-            return " with a neat cut shot"
-        if "flick" in example or "pads" in example:
-            return " with a flick off the pads"
-        if "pull" in example:
-            return " with a controlled pull"
-        if "edge" in example:
-            return " off a thick edge"
-        return " with good timing"
-
-    if event_type == "boundary_six":
-        if "pull" in example:
-            return " with a powerful pull"
-        if "loft" in example:
-            return " with a lofted hit"
-        if "straight" in example:
-            return " straight down the ground"
-        if "stands" in example or "crowd" in example:
-            return " deep into the stands"
-        return " with plenty of power"
+    example = _example_text(retrieved_examples)
 
     if event_type == "single":
         if "leg side" in example:
@@ -107,10 +149,11 @@ def _style_hint(event_type, retrieved_examples):
         return " with no scoring chance"
 
     if event_type == "wicket_caught":
-        if "edge" in example or "edged" in example or "snick" in example:
-            return " after finding the edge"
+        # Check top edge before edge so the more specific phrase wins.
         if "top edge" in example:
             return " off the top edge"
+        if "edge" in example or "edged" in example or "snick" in example:
+            return " after finding the edge"
         if "holes out" in example:
             return " after holing out"
         return " as the catch is taken safely"
@@ -161,6 +204,132 @@ def _apply_style(line, hint):
     return f"{line}{hint}."
 
 
+def _boundary_four_line(batter, retrieved_examples):
+    """
+    Pick a four-run template from one coherent shot family.
+    """
+    style = _style_key("boundary_four", retrieved_examples)
+
+    templates_by_style = {
+        "drive": [
+            f"{batter} drives it away for four.",
+            f"Crisp drive from {batter}, and that runs away for four.",
+            f"{batter} leans into the drive and finds the boundary."
+        ],
+        "cut": [
+            f"{batter} cuts it away for four.",
+            f"Sharp cut from {batter}, and that reaches the fence.",
+            f"{batter} uses the width and cuts it for four."
+        ],
+        "flick": [
+            f"{batter} flicks it off the pads for four.",
+            f"Neatly worked off the pads by {batter}, and it races away.",
+            f"{batter} times the flick well and gets four."
+        ],
+        "pull": [
+            f"{batter} pulls it away for four.",
+            f"Controlled pull from {batter}, and that reaches the boundary.",
+            f"{batter} gets onto the short ball and pulls it for four."
+        ],
+        "edge": [
+            f"{batter} gets a thick edge, and it runs away for four.",
+            f"Four runs, but not exactly where {batter} intended. It flies off the edge.",
+            f"An edge from {batter}, and there is no stopping it before the rope."
+        ],
+        "timing": [
+            f"Beautifully timed by {batter}, and that is four.",
+            f"Four runs. {batter} finds the boundary with good timing.",
+            f"That races to the fence. Four for {batter}."
+        ],
+        "neutral": [
+            f"Four runs. {batter} finds the boundary.",
+            f"That races to the fence. Four for {batter}.",
+            f"Beautifully timed by {batter}, and that is four."
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _boundary_six_line(batter, retrieved_examples):
+    """
+    Pick a six-run template from one coherent shot family.
+    """
+    style = _style_key("boundary_six", retrieved_examples)
+
+    templates_by_style = {
+        "pull": [
+            f"{batter} pulls it high and clears the rope.",
+            f"Powerful pull from {batter}, and that is six.",
+            f"{batter} pulls the short ball away for six."
+        ],
+        "loft": [
+            f"{batter} lofts it cleanly for six.",
+            f"That is lofted beautifully by {batter}, and it clears the boundary.",
+            f"{batter} lofts it high and gets all of it. Six runs."
+        ],
+        "straight": [
+            f"{batter} sends it straight back over the bowler for six.",
+            f"Straight down the ground from {batter}, and that is six.",
+            f"{batter} launches it straight and clears the rope."
+        ],
+        "stands": [
+            f"{batter} sends it deep into the stands.",
+            f"That is into the crowd. Six for {batter}.",
+            f"{batter} clears the rope and picks out the crowd."
+        ],
+        "power": [
+            f"Six. {batter} sends it over the ropes.",
+            f"{batter} launches it for six.",
+            f"That is huge. {batter} clears the boundary."
+        ],
+        "neutral": [
+            f"Six. {batter} sends it over the ropes.",
+            f"{batter} launches it for six.",
+            f"That is huge. {batter} clears the boundary."
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _wicket_caught_line(player_out, bowler, retrieved_examples):
+    """
+    Pick a caught-wicket template from one coherent dismissal family.
+    """
+    style = _style_key("wicket_caught", retrieved_examples)
+
+    templates_by_style = {
+        "top_edge": [
+            f"{player_out} gets a top edge, and the catch is taken off {bowler}.",
+            f"Top edge from {player_out}, and {bowler} has the wicket.",
+            f"{player_out} miscues it off the top edge and is caught."
+        ],
+        "edge": [
+            f"There is the edge. {player_out} is caught off {bowler}.",
+            f"{player_out} edges it, and the catch is taken.",
+            f"A nick from {player_out}, and {bowler} gets the wicket."
+        ],
+        "holes_out": [
+            f"{player_out} holes out, and {bowler} gets the wicket.",
+            f"{player_out} picks out the fielder and has to go.",
+            f"Caught in the deep. {player_out} is gone off {bowler}."
+        ],
+        "safe_catch": [
+            f"Taken. {player_out} is out caught off {bowler}.",
+            f"Caught. {player_out} has to go.",
+            f"{bowler} gets the breakthrough, and {player_out} is caught."
+        ],
+        "neutral": [
+            f"Taken. {player_out} is out caught off {bowler}.",
+            f"Caught. {player_out} has to go.",
+            f"{bowler} gets the breakthrough, and {player_out} is caught."
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
 def generate_commentary(event, event_type, retrieved_examples=None, context=None):
     if retrieved_examples is None:
         retrieved_examples = []
@@ -168,6 +337,13 @@ def generate_commentary(event, event_type, retrieved_examples=None, context=None
     batter = event.get("batter", "The batter")
     bowler = event.get("bowler", "the bowler")
     player_out = event.get("player_dismissed", batter)
+
+    # Boundary events use style-specific templates instead of appended hints.
+    if event_type == "boundary_four":
+        return _boundary_four_line(batter, retrieved_examples) + _context_tail(context)
+
+    if event_type == "boundary_six":
+        return _boundary_six_line(batter, retrieved_examples) + _context_tail(context)
 
     hint = _style_hint(event_type, retrieved_examples)
 
@@ -206,24 +382,6 @@ def generate_commentary(event, event_type, retrieved_examples=None, context=None
         ])
         return _apply_style(line, hint) + _context_tail(context)
 
-    if event_type == "boundary_four":
-        line = _choose([
-            f"Four runs. {batter} finds the boundary.",
-            f"{batter} drives it away for four.",
-            f"That races to the fence. Four for {batter}.",
-            f"Beautifully timed by {batter}, and that is four."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
-
-    if event_type == "boundary_six":
-        line = _choose([
-            f"Six. {batter} sends it over the ropes.",
-            f"{batter} launches it for six.",
-            f"That is huge. {batter} clears the boundary.",
-            f"Straight into the stands. Six runs."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
-
     if event_type == "wicket_bowled":
         line = _choose([
             f"Bowled him. {player_out} is gone, and {bowler} strikes.",
@@ -234,13 +392,7 @@ def generate_commentary(event, event_type, retrieved_examples=None, context=None
         return _apply_style(line, hint) + _context_tail(context)
 
     if event_type == "wicket_caught":
-        line = _choose([
-            f"Taken. {player_out} is out caught off {bowler}.",
-            f"{player_out} holes out, and {bowler} gets the wicket.",
-            f"Caught. {player_out} has to go.",
-            f"{bowler} gets the breakthrough, and {player_out} is caught."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+        return _wicket_caught_line(player_out, bowler, retrieved_examples) + _context_tail(context)
 
     if event_type == "wicket_lbw":
         line = _choose([
