@@ -52,15 +52,19 @@ def _example_text(retrieved_examples):
     return _normalize_example(retrieved_examples[0])
 
 
+def _has_any(text, keywords):
+    """
+    Return True if any keyword appears in the normalized example text.
+    """
+    return any(keyword in text for keyword in keywords)
+
+
 def _style_key(event_type, retrieved_examples):
     """
     Return a small style category instead of a sentence fragment.
 
-    This prevents shaky phrasing like:
-        "drives it away for four with a controlled pull"
-
-    The generator should pick one coherent template family, not choose a base
-    template and then bolt on a second shot type afterward.
+    This keeps retrieval useful without bolting risky fragments onto templates.
+    Each event type chooses one coherent template family.
     """
     example = _example_text(retrieved_examples)
     if not example:
@@ -69,139 +73,98 @@ def _style_key(event_type, retrieved_examples):
     if event_type == "boundary_four":
         # Edge comes first because an edged four is a very different image from
         # a controlled shot like a drive, pull, cut, or flick.
-        if "edge" in example or "edged" in example:
+        if _has_any(example, ["edge", "edged", "outside edge", "inside edge"]):
             return "edge"
-        if "drive" in example or "drives" in example or "driven" in example:
+        if _has_any(example, ["drive", "drives", "driven", "cover"]):
             return "drive"
-        if "cut" in example:
+        if _has_any(example, ["cut", "cuts", "width"]):
             return "cut"
-        if "flick" in example or "pads" in example or "pad" in example:
+        if _has_any(example, ["flick", "flicks", "pads", "pad", "worked"]):
             return "flick"
-        if "pull" in example or "pulled" in example:
+        if _has_any(example, ["pull", "pulled", "short ball"]):
             return "pull"
         return "timing"
 
     if event_type == "boundary_six":
-        if "pull" in example or "pulled" in example:
+        if _has_any(example, ["pull", "pulled", "short ball"]):
             return "pull"
-        if "loft" in example or "lofted" in example:
+        if _has_any(example, ["loft", "lofted", "high"]):
             return "loft"
-        if "straight" in example:
+        if _has_any(example, ["straight", "down the ground"]):
             return "straight"
-        if "stands" in example or "crowd" in example:
+        if _has_any(example, ["stands", "crowd"]):
             return "stands"
         return "power"
+
+    if event_type == "single":
+        if _has_any(example, ["leg side", "square leg", "fine leg", "pads", "pad"]):
+            return "leg_side"
+        if _has_any(example, ["mid off", "mid-off", "mid on", "mid-on"]):
+            return "mid_off"
+        if _has_any(example, ["soft hands", "softly"]):
+            return "soft_hands"
+        if _has_any(example, ["tap", "tapped", "nudge", "nudged"]):
+            return "tap"
+        return "rotation"
+
+    if event_type == "double":
+        if _has_any(example, ["gap", "placed", "placement"]):
+            return "placement"
+        return "running"
+
+    if event_type == "triple":
+        if _has_any(example, ["gap", "deep", "outfield"]):
+            return "gap"
+        return "running"
+
+    if event_type == "dot_ball":
+        if _has_any(example, ["defend", "defended", "defence", "defense"]):
+            return "defence"
+        if _has_any(example, ["leave", "left alone"]):
+            return "leave"
+        if _has_any(example, ["beaten", "beats", "beat"]):
+            return "beaten"
+        return "tight"
 
     if event_type == "wicket_caught":
         if "top edge" in example:
             return "top_edge"
-        if "edge" in example or "edged" in example or "snick" in example:
+        if _has_any(example, ["edge", "edged", "snick", "nick"]):
             return "edge"
-        if "holes out" in example or "holed out" in example:
+        if _has_any(example, ["holes out", "holed out", "deep"]):
             return "holes_out"
         return "safe_catch"
 
-    return "neutral"
-
-
-def _style_hint(event_type, retrieved_examples):
-    """
-    Use the top retrieved example to add a SMALL style hint.
-
-    Boundary shots are intentionally excluded here. They are handled by
-    _boundary_four_line and _boundary_six_line so the shot type stays coherent.
-    """
-    if not retrieved_examples:
-        return ""
-
-    example = _example_text(retrieved_examples)
-
-    if event_type == "single":
-        if "leg side" in example:
-            return " into the leg side"
-        if "mid off" in example or "mid-off" in example:
-            return " in front of mid-off"
-        if "soft hands" in example:
-            return " with soft hands"
-        if "tap" in example or "tapped" in example:
-            return " with a gentle tap"
-        return " to rotate the strike"
-
-    if event_type == "double":
-        if "gap" in example:
-            return " into the gap"
-        if "placed" in example:
-            return " with good placement"
-        return " with quick running"
-
-    if event_type == "triple":
-        if "gap" in example:
-            return " into a big gap"
-        return " with excellent running"
-
-    if event_type == "dot_ball":
-        if "defend" in example or "defended" in example:
-            return " after a solid defence"
-        if "leave" in example or "left alone" in example:
-            return " as it is left alone"
-        if "beaten" in example:
-            return " as the batter is beaten"
-        return " with no scoring chance"
-
-    if event_type == "wicket_caught":
-        # Check top edge before edge so the more specific phrase wins.
-        if "top edge" in example:
-            return " off the top edge"
-        if "edge" in example or "edged" in example or "snick" in example:
-            return " after finding the edge"
-        if "holes out" in example:
-            return " after holing out"
-        return " as the catch is taken safely"
-
     if event_type == "wicket_bowled":
         if "gate" in example:
-            return " through the gate"
-        if "cleaned up" in example:
-            return " after being cleaned up"
-        return " as the stumps are hit"
+            return "gate"
+        if _has_any(example, ["cleaned up", "knocked over"]):
+            return "cleaned_up"
+        return "stumps"
 
     if event_type == "wicket_lbw":
-        if "trapped" in example:
-            return " trapped in front"
-        return " right in front of the stumps"
+        if _has_any(example, ["trapped", "plumb"]):
+            return "trapped"
+        return "front"
 
     if event_type == "run_out":
         if "direct hit" in example:
-            return " with a direct hit"
-        return " after sharp fielding"
+            return "direct_hit"
+        return "sharp_fielding"
 
     if event_type == "wide":
         if "bouncer" in example:
-            return " with the bouncer going too high or wide"
-        if "outside off" in example:
-            return " far outside off"
-        return " down the wrong line"
-
-    if event_type == "no_ball":
-        return " after overstepping"
+            return "bouncer"
+        if _has_any(example, ["outside off", "wide outside"]):
+            return "outside_off"
+        return "line"
 
     if event_type == "bye_or_legbye":
-        if "thigh" in example or "pad" in example:
-            return " off the pads"
-        return " as extras"
+        if _has_any(example, ["thigh", "pad", "pads", "leg bye"]):
+            return "pads"
+        return "extras"
 
-    return ""
-
-
-def _apply_style(line, hint):
-    """
-    Add a style hint cleanly to the end of a template sentence.
-    """
-    if not hint:
-        return line
-
-    line = line.rstrip(".!?")
-    return f"{line}{hint}."
+    return "neutral"
 
 
 def _boundary_four_line(batter, retrieved_examples):
@@ -214,37 +177,37 @@ def _boundary_four_line(batter, retrieved_examples):
         "drive": [
             f"{batter} drives it away for four.",
             f"Crisp drive from {batter}, and that runs away for four.",
-            f"{batter} leans into the drive and finds the boundary."
+            f"{batter} leans into the drive and finds the boundary.",
         ],
         "cut": [
             f"{batter} cuts it away for four.",
             f"Sharp cut from {batter}, and that reaches the fence.",
-            f"{batter} uses the width and cuts it for four."
+            f"{batter} uses the width and cuts it for four.",
         ],
         "flick": [
             f"{batter} flicks it off the pads for four.",
             f"Neatly worked off the pads by {batter}, and it races away.",
-            f"{batter} times the flick well and gets four."
+            f"{batter} times the flick well and gets four.",
         ],
         "pull": [
             f"{batter} pulls it away for four.",
-            f"Controlled pull from {batter}, and that reaches the boundary.",
-            f"{batter} gets onto the short ball and pulls it for four."
+            f"{batter} pulls it cleanly, and that reaches the boundary.",
+            f"{batter} gets onto the short ball and pulls it for four.",
         ],
         "edge": [
             f"{batter} gets a thick edge, and it runs away for four.",
             f"Four runs, but not exactly where {batter} intended. It flies off the edge.",
-            f"An edge from {batter}, and there is no stopping it before the rope."
+            f"An edge from {batter}, and there is no stopping it before the rope.",
         ],
         "timing": [
             f"Beautifully timed by {batter}, and that is four.",
             f"Four runs. {batter} finds the boundary with good timing.",
-            f"That races to the fence. Four for {batter}."
+            f"That races to the fence. Four for {batter}.",
         ],
         "neutral": [
             f"Four runs. {batter} finds the boundary.",
             f"That races to the fence. Four for {batter}.",
-            f"Beautifully timed by {batter}, and that is four."
+            f"Beautifully timed by {batter}, and that is four.",
         ],
     }
 
@@ -261,32 +224,165 @@ def _boundary_six_line(batter, retrieved_examples):
         "pull": [
             f"{batter} pulls it high and clears the rope.",
             f"Powerful pull from {batter}, and that is six.",
-            f"{batter} pulls the short ball away for six."
+            f"{batter} pulls the short ball away for six.",
         ],
         "loft": [
             f"{batter} lofts it cleanly for six.",
             f"That is lofted beautifully by {batter}, and it clears the boundary.",
-            f"{batter} lofts it high and gets all of it. Six runs."
+            f"{batter} lofts it high and gets all of it. Six runs.",
         ],
         "straight": [
             f"{batter} sends it straight back over the bowler for six.",
             f"Straight down the ground from {batter}, and that is six.",
-            f"{batter} launches it straight and clears the rope."
+            f"{batter} launches it straight and clears the rope.",
         ],
         "stands": [
             f"{batter} sends it deep into the stands.",
             f"That is into the crowd. Six for {batter}.",
-            f"{batter} clears the rope and picks out the crowd."
+            f"{batter} clears the rope and picks out the crowd.",
         ],
         "power": [
             f"Six. {batter} sends it over the ropes.",
             f"{batter} launches it for six.",
-            f"That is huge. {batter} clears the boundary."
+            f"That is huge. {batter} clears the boundary.",
         ],
         "neutral": [
             f"Six. {batter} sends it over the ropes.",
             f"{batter} launches it for six.",
-            f"That is huge. {batter} clears the boundary."
+            f"That is huge. {batter} clears the boundary.",
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _single_line(batter, retrieved_examples):
+    """
+    Pick a single-run template without appending redundant strike-rotation hints.
+    """
+    style = _style_key("single", retrieved_examples)
+
+    templates_by_style = {
+        "leg_side": [
+            f"{batter} works it into the leg side for one.",
+            f"One run for {batter}, clipped off the pads.",
+            f"{batter} turns it around the corner for a single.",
+        ],
+        "mid_off": [
+            f"{batter} pushes it in front of mid-off and takes one.",
+            f"A gentle push from {batter}, and they get a single.",
+            f"{batter} drops it near mid-off for one.",
+        ],
+        "soft_hands": [
+            f"Soft hands from {batter}, and they take a single.",
+            f"{batter} plays it softly and gets one.",
+            f"A controlled touch from {batter} brings a single.",
+        ],
+        "tap": [
+            f"{batter} taps it away for one.",
+            f"Tapped into the gap by {batter} for a single.",
+            f"{batter} nudges it away and takes one.",
+        ],
+        "rotation": [
+            f"{batter} works it away for a single.",
+            f"Just one for {batter}.",
+            f"{batter} picks up a single.",
+        ],
+        "neutral": [
+            f"{batter} works it away for a single.",
+            f"Just one for {batter}.",
+            f"{batter} picks up a single.",
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _double_line(batter, retrieved_examples):
+    """
+    Pick a two-run template from placement or running style.
+    """
+    style = _style_key("double", retrieved_examples)
+
+    templates_by_style = {
+        "placement": [
+            f"{batter} places it into the gap and comes back for two.",
+            f"Good placement from {batter}, and they pick up two.",
+            f"That is nicely placed by {batter} for a couple.",
+        ],
+        "running": [
+            f"{batter} comes back for two.",
+            f"Good running from the batters, and {batter} gets a couple.",
+            f"Two runs taken by {batter}.",
+        ],
+        "neutral": [
+            f"{batter} comes back for two.",
+            f"Good running from the batters, and {batter} gets a couple.",
+            f"Two runs taken by {batter}.",
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _triple_line(batter, retrieved_examples):
+    """
+    Pick a three-run template from gap or running style.
+    """
+    style = _style_key("triple", retrieved_examples)
+
+    templates_by_style = {
+        "gap": [
+            f"{batter} finds a big gap, and they run three.",
+            f"That is placed deep into the outfield, and {batter} gets three.",
+            f"Excellent placement from {batter}, and they come back for three.",
+        ],
+        "running": [
+            f"They come back for three, well run by the batters.",
+            f"{batter} gets three after hard running.",
+            f"Three runs taken, and {batter} makes them work for it.",
+        ],
+        "neutral": [
+            f"They come back for three, well run by the batters.",
+            f"{batter} gets three after hard running.",
+            f"Three runs taken, and {batter} makes them work for it.",
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _dot_ball_line(batter, bowler, retrieved_examples):
+    """
+    Pick a dot-ball template instead of stapling on a generic hint.
+    """
+    style = _style_key("dot_ball", retrieved_examples)
+
+    templates_by_style = {
+        "defence": [
+            f"{batter} gets behind it and defends. No run.",
+            f"Solid defence from {batter}. Dot ball.",
+            f"{batter} meets {bowler} with a firm defence.",
+        ],
+        "leave": [
+            f"{batter} leaves it alone. No run.",
+            f"Left alone by {batter}, and it is another dot.",
+            f"{batter} shoulders arms and lets it go through.",
+        ],
+        "beaten": [
+            f"{bowler} beats {batter}. No run.",
+            f"Play and miss from {batter}. Dot ball.",
+            f"{batter} is beaten by {bowler}, and there is no run.",
+        ],
+        "tight": [
+            f"Good delivery from {bowler}. No run.",
+            f"{bowler} keeps it tight, and {batter} cannot score.",
+            f"Dot ball. {batter} finds no scoring option.",
+        ],
+        "neutral": [
+            f"Good delivery from {bowler}. No run.",
+            f"{bowler} keeps it tight, and {batter} cannot score.",
+            f"Dot ball. {batter} finds no scoring option.",
         ],
     }
 
@@ -303,27 +399,172 @@ def _wicket_caught_line(player_out, bowler, retrieved_examples):
         "top_edge": [
             f"{player_out} gets a top edge, and the catch is taken off {bowler}.",
             f"Top edge from {player_out}, and {bowler} has the wicket.",
-            f"{player_out} miscues it off the top edge and is caught."
+            f"{player_out} miscues it off the top edge and is caught.",
         ],
         "edge": [
             f"There is the edge. {player_out} is caught off {bowler}.",
             f"{player_out} edges it, and the catch is taken.",
-            f"A nick from {player_out}, and {bowler} gets the wicket."
+            f"A nick from {player_out}, and {bowler} gets the wicket.",
         ],
         "holes_out": [
             f"{player_out} holes out, and {bowler} gets the wicket.",
             f"{player_out} picks out the fielder and has to go.",
-            f"Caught in the deep. {player_out} is gone off {bowler}."
+            f"Caught in the deep. {player_out} is gone off {bowler}.",
         ],
         "safe_catch": [
             f"Taken. {player_out} is out caught off {bowler}.",
             f"Caught. {player_out} has to go.",
-            f"{bowler} gets the breakthrough, and {player_out} is caught."
+            f"{bowler} gets the breakthrough, and {player_out} is caught.",
         ],
         "neutral": [
             f"Taken. {player_out} is out caught off {bowler}.",
             f"Caught. {player_out} has to go.",
-            f"{bowler} gets the breakthrough, and {player_out} is caught."
+            f"{bowler} gets the breakthrough, and {player_out} is caught.",
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _wicket_bowled_line(player_out, bowler, retrieved_examples):
+    """
+    Pick a bowled-wicket template without repeating the same dismissal wording.
+    """
+    style = _style_key("wicket_bowled", retrieved_examples)
+
+    templates_by_style = {
+        "gate": [
+            f"{bowler} goes through the gate. {player_out} is bowled.",
+            f"Bowled through the gate. {player_out} has to depart.",
+            f"{player_out} is beaten through the gate, and {bowler} strikes.",
+        ],
+        "cleaned_up": [
+            f"Cleaned up. {player_out} is bowled.",
+            f"{bowler} knocks over {player_out}.",
+            f"{player_out} is cleaned up, and {bowler} has another.",
+        ],
+        "stumps": [
+            f"Bowled. {player_out} is gone, and {bowler} strikes.",
+            f"The stumps are hit, and {player_out} has to go.",
+            f"What a ball from {bowler}. {player_out} is bowled.",
+        ],
+        "neutral": [
+            f"Bowled. {player_out} is gone, and {bowler} strikes.",
+            f"The stumps are hit, and {player_out} has to go.",
+            f"What a ball from {bowler}. {player_out} is bowled.",
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _wicket_lbw_line(player_out, retrieved_examples):
+    """
+    Pick an LBW template from one coherent dismissal family.
+    """
+    style = _style_key("wicket_lbw", retrieved_examples)
+
+    templates_by_style = {
+        "trapped": [
+            f"{player_out} is trapped in front. LBW.",
+            f"Huge shout, and given. {player_out} is trapped lbw.",
+            f"That is plumb. {player_out} has to go.",
+        ],
+        "front": [
+            f"That is out lbw. {player_out} has to go.",
+            f"Straight enough, and {player_out} is gone lbw.",
+            f"The umpire raises the finger. {player_out} is lbw.",
+        ],
+        "neutral": [
+            f"That is out lbw. {player_out} has to go.",
+            f"Straight enough, and {player_out} is gone lbw.",
+            f"The umpire raises the finger. {player_out} is lbw.",
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _run_out_line(player_out, retrieved_examples):
+    """
+    Pick a run-out template without duplicating direct-hit language.
+    """
+    style = _style_key("run_out", retrieved_examples)
+
+    templates_by_style = {
+        "direct_hit": [
+            f"Direct hit, and {player_out} is gone.",
+            f"{player_out} is short after a direct hit.",
+            f"The direct hit does it. {player_out} is run out.",
+        ],
+        "sharp_fielding": [
+            f"Run out. {player_out} is short of the crease.",
+            f"{player_out} cannot make the ground. Run out.",
+            f"Sharp fielding brings about the run out of {player_out}.",
+        ],
+        "neutral": [
+            f"Run out. {player_out} is short of the crease.",
+            f"{player_out} cannot make the ground. Run out.",
+            f"Sharp fielding brings about the run out of {player_out}.",
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _wide_line(bowler, retrieved_examples):
+    """
+    Pick a wide-ball template from the retrieved style.
+    """
+    style = _style_key("wide", retrieved_examples)
+
+    templates_by_style = {
+        "bouncer": [
+            f"That bouncer is called wide.",
+            f"Too high from {bowler}, and it is signalled wide.",
+            f"The short ball is too high. Wide called.",
+        ],
+        "outside_off": [
+            f"That is too far outside off. Wide ball.",
+            f"{bowler} misses the line outside off, and it is wide.",
+            f"Too wide outside off for the batter to reach.",
+        ],
+        "line": [
+            f"Wide ball. {bowler} loses the line.",
+            f"That is called wide.",
+            f"Too wide to play at. Extra run conceded.",
+        ],
+        "neutral": [
+            f"Wide ball. {bowler} loses the line.",
+            f"That is called wide.",
+            f"Too wide to play at. Extra run conceded.",
+        ],
+    }
+
+    return _choose(templates_by_style.get(style, templates_by_style["neutral"]))
+
+
+def _bye_or_legbye_line(retrieved_examples):
+    """
+    Pick an extras template for byes or leg byes.
+    """
+    style = _style_key("bye_or_legbye", retrieved_examples)
+
+    templates_by_style = {
+        "pads": [
+            "They pick up extras off the pads.",
+            "Leg byes added to the total.",
+            "Not off the bat, but they still get runs from the pads.",
+        ],
+        "extras": [
+            "They pick up extras, not off the bat.",
+            "That will go down as extras.",
+            "Not from the bat, but they still get a run.",
+        ],
+        "neutral": [
+            "They pick up extras, not off the bat.",
+            "That will go down as extras.",
+            "Not from the bat, but they still get a run.",
         ],
     }
 
@@ -338,108 +579,48 @@ def generate_commentary(event, event_type, retrieved_examples=None, context=None
     bowler = event.get("bowler", "the bowler")
     player_out = event.get("player_dismissed", batter)
 
-    # Boundary events use style-specific templates instead of appended hints.
     if event_type == "boundary_four":
         return _boundary_four_line(batter, retrieved_examples) + _context_tail(context)
 
     if event_type == "boundary_six":
         return _boundary_six_line(batter, retrieved_examples) + _context_tail(context)
 
-    hint = _style_hint(event_type, retrieved_examples)
-
     if event_type == "dot_ball":
-        line = _choose([
-            f"Good delivery from {bowler}. {batter} cannot score.",
-            f"{bowler} keeps it tight, and {batter} gets no run.",
-            f"No run. {batter} is beaten for scoring options by {bowler}.",
-            f"{batter} can only defend it. Dot ball."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+        return _dot_ball_line(batter, bowler, retrieved_examples) + _context_tail(context)
 
     if event_type == "single":
-        line = _choose([
-            f"{batter} works it away for a single.",
-            f"Just one for {batter}.",
-            f"{batter} picks up a single and keeps the strike moving.",
-            f"Tapped away by {batter} for one."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+        return _single_line(batter, retrieved_examples) + _context_tail(context)
 
     if event_type == "double":
-        line = _choose([
-            f"{batter} comes back for two.",
-            f"Good running. {batter} collects a couple.",
-            f"That is nicely placed, and they get two.",
-            f"Two runs taken by {batter}."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+        return _double_line(batter, retrieved_examples) + _context_tail(context)
 
     if event_type == "triple":
-        line = _choose([
-            f"{batter} places it well and they run three.",
-            f"That is excellent placement. {batter} gets three.",
-            f"They come back for three, well run by the batters."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+        return _triple_line(batter, retrieved_examples) + _context_tail(context)
 
     if event_type == "wicket_bowled":
-        line = _choose([
-            f"Bowled him. {player_out} is gone, and {bowler} strikes.",
-            f"{bowler} knocks him over. {player_out} has to depart.",
-            f"Cleaned up. {player_out} is bowled.",
-            f"What a ball. {player_out} is out bowled."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+        return _wicket_bowled_line(player_out, bowler, retrieved_examples) + _context_tail(context)
 
     if event_type == "wicket_caught":
         return _wicket_caught_line(player_out, bowler, retrieved_examples) + _context_tail(context)
 
     if event_type == "wicket_lbw":
-        line = _choose([
-            f"That is out lbw. {player_out} has to go.",
-            f"Huge shout, and given. {player_out} is trapped lbw.",
-            f"{player_out} is out in front. LBW.",
-            f"Straight enough, and {player_out} is gone lbw."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+        return _wicket_lbw_line(player_out, retrieved_examples) + _context_tail(context)
 
     if event_type == "run_out":
-        line = _choose([
-            f"Run out. {player_out} is short of the crease.",
-            f"Direct hit, and {player_out} is gone.",
-            f"{player_out} cannot make the ground. Run out.",
-            f"Sharp fielding brings about the run out of {player_out}."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+        return _run_out_line(player_out, retrieved_examples) + _context_tail(context)
 
     if event_type == "wide":
-        line = _choose([
-            f"Wide ball. {bowler} sprays it too far outside.",
-            f"That is called wide.",
-            f"{bowler} loses the line there, and it is a wide.",
-            f"Too wide to play at. Extra run conceded."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+        return _wide_line(bowler, retrieved_examples) + _context_tail(context)
 
     if event_type == "no_ball":
-        line = _choose([
+        return _choose([
             f"No-ball called against {bowler}.",
             f"{bowler} has overstepped. No-ball.",
             f"That will be a no-ball.",
-            f"Free run for the batting side as {bowler} is called for a no-ball."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+            f"Free run for the batting side as {bowler} is called for a no-ball.",
+        ]) + _context_tail(context)
 
     if event_type == "bye_or_legbye":
-        line = _choose([
-            "They pick up extras, not off the bat.",
-            "That will go down as extras.",
-            "Not from the bat, but they still get a run.",
-            "Extras added to the total."
-        ])
-        return _apply_style(line, hint) + _context_tail(context)
+        return _bye_or_legbye_line(retrieved_examples) + _context_tail(context)
 
-    return _apply_style(
-        f"{batter} faces {bowler}, and the play results in {event_type}.",
-        hint
-    ) + _context_tail(context)
+    return f"{batter} faces {bowler}, and the play results in {event_type}." + _context_tail(context)

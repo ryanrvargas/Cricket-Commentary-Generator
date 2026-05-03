@@ -256,7 +256,7 @@ if __name__ == "__main__":
     for label, items in commentary_bank.items():
         print(f"{label}: {len(items)}")
 
-        blank_commentary_count = sum(1 for row in commentary_rows if not row["commentary"])
+    blank_commentary_count = sum(1 for row in commentary_rows if not row["commentary"])
     print(f"\nBlank commentary rows: {blank_commentary_count}")
 
     print("\nSample blank commentary rows:")
