@@ -9,37 +9,50 @@ def _clean_text(value):
     return " ".join(str(value).strip().split())
 
 
-def _normalize_soccer_event_type(value):
+def _normalize_soccer_event_type(value, commentary_text=""):
     """
     Normalize commentary-side event labels into the same shared soccer label set.
+    Falls back to light commentary-text checks when the source label is vague.
     """
     text = _clean_text(value).lower().replace("-", "_").replace(" ", "_")
+    commentary = _clean_text(commentary_text).lower()
 
-    if text == "goal":
+    if text == "goal" or "goal!" in commentary or commentary.startswith("goal"):
         return "goal"
+
+    if text in {"save", "goalkeeper_save", "keeper_save"}:
+        return "save"
+    if "what a save" in commentary or "saved by" in commentary or "denies" in commentary:
+        return "save"
+
     if text == "shot":
         return "shot"
-    if text == "save":
-        return "save"
+
     if text == "corner":
         return "corner"
+
     if text in {"free_kick", "freekick"}:
         return "free_kick"
+
     if text == "foul":
         return "foul"
+
     if text == "yellow_card":
         return "yellow_card"
+
     if text == "red_card":
         return "red_card"
+
     if text == "offside":
         return "offside"
+
     if text == "substitution":
         return "substitution"
+
     if text == "pass":
         return "pass"
 
     return "other"
-
 
 def load_soccer_commentary_rows(csv_path):
     """
@@ -67,7 +80,10 @@ def load_soccer_commentary_rows(csv_path):
     rows = []
     for _, row in df.iterrows():
         commentary = _clean_text(row.get("commentary"))
-        event_type = _normalize_soccer_event_type(row.get("event_type"))
+        event_type = _normalize_soccer_event_type(
+            row.get("event_type"),
+            row.get("commentary", "")
+        )
 
         rows.append(
             {

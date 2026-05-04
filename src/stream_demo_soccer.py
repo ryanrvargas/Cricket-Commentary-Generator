@@ -145,9 +145,9 @@ def run_soccer_demo(
         if event_type == "other":
             continue
 
-        if event_type == "pass" and not include_passes and not debug:
+        if event_type == "pass" and not include_passes:
             continue
-
+        
         if max_events is not None and shown >= max_events:
             break
 
