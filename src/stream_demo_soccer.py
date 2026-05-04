@@ -9,7 +9,7 @@ from retriever import get_commentary_examples
 from soccer_generator import generate_soccer_commentary
 
 
-DEFAULT_COMMENTARY_FILE = "commentary_train.csv"
+DEFAULT_COMMENTARY_FILE = "commentary_train_augmented.csv"
 
 
 INTERESTING_EVENT_TYPES = {
@@ -147,7 +147,7 @@ def run_soccer_demo(
 
         if event_type == "pass" and not include_passes:
             continue
-        
+
         if max_events is not None and shown >= max_events:
             break
 
