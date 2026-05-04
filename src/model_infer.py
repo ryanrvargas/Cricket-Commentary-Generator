@@ -3,21 +3,19 @@ model_infer.py
 --------------
 Generate commentary from a fine-tuned T5/FLAN-T5 checkpoint.
 
-The main function accepts a Cricsheet-style event row, formats it with the same
-simplified prompt structure used during fine-tuning, and asks the model to
-generate one commentary line.
+This version uses the same simplified prompt as training and includes an optional
+fact guard. The guard only adds a short factual prefix when the model output does
+not mention the required event fact, such as "Bowled." for wicket_bowled.
 
-Example using a saved match file:
-    python src/model_infer.py --checkpoint models/t5-cricket-commentary --match raw/1527575.json --event-index 2 --show-prompt
-
-Example using manual fields:
-    python src/model_infer.py --checkpoint models/t5-cricket-commentary --event-type boundary_four --batter "Mohammad Rizwan" --bowler "Mohammad Ali" --runs 4
+Example:
+    python src/model_infer.py --checkpoint models/t5-cricket-commentary-balanced --match raw/1527575.json --event-index 13 --show-prompt
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -35,6 +33,18 @@ from build_supervised_pairs import prompt_from_match_event  # noqa: E402
 from classify_event import classify_event  # noqa: E402
 from load_events import load_match_events  # noqa: E402
 
+EVENT_KEYWORDS = {
+    "boundary_four": ["four", "boundary", "rope", "fence"],
+    "boundary_six": ["six", "maximum", "stands", "crowd", "rope"],
+    "wicket_bowled": ["bowled", "stumps", "cleaned", "knocked", "castle"],
+    "wicket_caught": ["caught", "catch", "taken", "edge", "nick", "fielder"],
+    "wicket_lbw": ["lbw", "trapped", "plumb", "front"],
+    "run_out": ["run out", "short", "direct hit"],
+    "wide": ["wide"],
+    "no_ball": ["no-ball", "no ball", "overstepped", "overstep"],
+    "bye_or_legbye": ["bye", "byes", "leg bye", "legbyes", "extras", "pads"],
+}
+
 
 def _require_transformers():
     try:
@@ -48,12 +58,59 @@ def _require_transformers():
     return AutoModelForSeq2SeqLM, AutoTokenizer
 
 
+def _normalized(text: str) -> str:
+    text = str(text).lower()
+    text = re.sub(r"[^a-z0-9\s-]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def _has_event_keyword(event_type: str, commentary: str) -> bool:
+    keywords = EVENT_KEYWORDS.get(event_type, [])
+    normalized = _normalized(commentary)
+    return any(keyword in normalized for keyword in keywords)
+
+
+def enforce_event_fact(commentary: str, event: dict[str, Any], event_type: str) -> str:
+    """
+    Add a small factual prefix if the generated text misses the event fact.
+
+    This is a guardrail, not a replacement for training. It keeps neural output
+    from contradicting the structured match event.
+    """
+    commentary = str(commentary).strip()
+    if not commentary:
+        commentary = "The ball is played."
+
+    if _has_event_keyword(event_type, commentary):
+        return commentary
+
+    batter = event.get("batter", "The batter")
+    bowler = event.get("bowler", "the bowler")
+    player_out = event.get("player_dismissed") or batter
+
+    prefixes = {
+        "boundary_four": "Four. ",
+        "boundary_six": "Six. ",
+        "wicket_bowled": f"Bowled. {player_out} is beaten by {bowler}. ",
+        "wicket_caught": f"Caught. {player_out} has to go. ",
+        "wicket_lbw": f"LBW. {player_out} is trapped in front. ",
+        "run_out": f"Run out. {player_out} is short of the crease. ",
+        "wide": f"Wide. {bowler} misses the line. ",
+        "no_ball": f"No-ball. {bowler} has overstepped. ",
+        "bye_or_legbye": "Extras. ",
+    }
+
+    prefix = prefixes.get(event_type, "")
+    return prefix + commentary
+
+
 def build_context_for_event(events: list[dict[str, Any]], event_index: int) -> dict[str, Any]:
     """
     Build score context through the selected event index.
 
-    The context is score-after-ball because that matches the existing demo style
-    where commentary can say things like "That moves them to 4/0.".
+    The simplified prompt does not currently use this context, but keeping this
+    function preserves compatibility with earlier calls and future experiments.
     """
     if event_index < 0 or event_index >= len(events):
         raise IndexError(f"event_index {event_index} is outside 0..{len(events) - 1}")
@@ -97,6 +154,7 @@ def generate_commentary_from_event(
     max_new_tokens: int = 48,
     num_beams: int = 4,
     temperature: float = 1.0,
+    fact_guard: bool = True,
 ) -> str:
     """
     Generate one commentary line from an event row and a fine-tuned model.
@@ -115,7 +173,7 @@ def generate_commentary_from_event(
         event_type = classify_event(event)
 
     prompt = prompt_from_match_event(event, event_type, context)
-    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=192)
+    inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=128)
     inputs = {key: value.to(device) for key, value in inputs.items()}
 
     generation_kwargs: dict[str, Any] = {
@@ -133,7 +191,12 @@ def generate_commentary_from_event(
     with torch.no_grad():
         output_ids = model.generate(**inputs, **generation_kwargs)
 
-    return tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
+    commentary = tokenizer.decode(output_ids[0], skip_special_tokens=True).strip()
+
+    if fact_guard:
+        commentary = enforce_event_fact(commentary, event, event_type)
+
+    return commentary
 
 
 def _event_from_manual_args(args: argparse.Namespace) -> dict[str, Any]:
@@ -169,10 +232,11 @@ def _load_event_from_args(args: argparse.Namespace) -> tuple[dict[str, Any], str
 
     event = _event_from_manual_args(args)
     event_type = args.event_type or classify_event(event)
-    context = {
-        "innings_score": args.score_runs,
-        "innings_wickets": args.score_wickets,
-    } if args.score_runs is not None and args.score_wickets is not None else None
+    context = (
+        {"innings_score": args.score_runs, "innings_wickets": args.score_wickets}
+        if args.score_runs is not None and args.score_wickets is not None
+        else None
+    )
     return event, event_type, context
 
 
@@ -200,6 +264,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--num-beams", type=int, default=4)
     parser.add_argument("--temperature", type=float, default=1.0)
     parser.add_argument("--show-prompt", action="store_true")
+    parser.add_argument("--no-fact-guard", action="store_true", help="Show raw model output without factual guardrails.")
     return parser.parse_args()
 
 
@@ -221,6 +286,7 @@ def main() -> None:
         max_new_tokens=args.max_new_tokens,
         num_beams=args.num_beams,
         temperature=args.temperature,
+        fact_guard=not args.no_fact_guard,
     )
     print(commentary)
 

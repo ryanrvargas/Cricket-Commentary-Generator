@@ -3,18 +3,15 @@ finetune_t5.py
 ---------------
 Fine-tune a small pretrained text-to-text model on cricket commentary pairs.
 
-This script loads train.csv, validation.csv, and test.csv, converts each file
-into prompt-target pairs using build_supervised_pairs.py, fine-tunes a T5-style
-model, and saves the trained checkpoint plus evaluation losses.
+This version supports event-balanced training. Balanced training helps prevent
+common event types from drowning out rarer but important event types such as
+wickets.
 
 Recommended install:
     pip install pandas torch transformers sentencepiece accelerate
 
-Example quick smoke run on a laptop:
-    python src/finetune_t5.py --max-train-samples 500 --max-eval-samples 100 --epochs 1
-
-Example fuller run:
-    python src/finetune_t5.py --model-name google/flan-t5-small --epochs 3
+Example balanced laptop run:
+    python src/finetune_t5.py --output-dir models/t5-cricket-commentary-balanced --balance-train --samples-per-event 150 --epochs 3 --shuffle
 """
 
 from __future__ import annotations
@@ -23,6 +20,7 @@ import argparse
 import json
 import random
 import sys
+from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -105,6 +103,59 @@ class CommentaryPairsDataset(Dataset):
         return self.examples[index]
 
 
+def _event_counts(pairs: list[dict[str, Any]]) -> dict[str, int]:
+    return dict(sorted(Counter(pair.get("event_type", "other") for pair in pairs).items()))
+
+
+def _print_event_counts(title: str, pairs: list[dict[str, Any]]) -> None:
+    print(f"\n{title} event counts:")
+    for event_type, count in _event_counts(pairs).items():
+        print(f"  {event_type}: {count}")
+
+
+def _balance_pairs(
+    pairs: list[dict[str, Any]],
+    *,
+    total_limit: int,
+    samples_per_event: int,
+    seed: int,
+) -> list[dict[str, Any]]:
+    """
+    Build a balanced training set by sampling each event type.
+
+    If an event bucket has fewer examples than requested, sample with replacement.
+    This is intentional for rare event types such as wickets.
+    """
+    if not pairs:
+        return pairs
+
+    rng = random.Random(seed)
+    groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for pair in pairs:
+        groups[pair.get("event_type", "other")].append(pair)
+
+    event_types = sorted(groups)
+    if samples_per_event <= 0:
+        if total_limit and total_limit > 0:
+            samples_per_event = max(1, total_limit // len(event_types))
+        else:
+            samples_per_event = min(len(group) for group in groups.values())
+
+    balanced: list[dict[str, Any]] = []
+    for event_type in event_types:
+        group = groups[event_type]
+        if len(group) >= samples_per_event:
+            balanced.extend(rng.sample(group, samples_per_event))
+        else:
+            balanced.extend(rng.choices(group, k=samples_per_event))
+
+    rng.shuffle(balanced)
+    if total_limit and total_limit > 0:
+        balanced = balanced[:total_limit]
+
+    return balanced
+
+
 def _maybe_limit(
     pairs: list[dict[str, Any]],
     limit: int,
@@ -149,15 +200,9 @@ def _make_training_args(Seq2SeqTrainingArguments: Any, args: argparse.Namespace)
     )
 
     try:
-        return Seq2SeqTrainingArguments(
-            **common_kwargs,
-            eval_strategy="epoch",
-        )
+        return Seq2SeqTrainingArguments(**common_kwargs, eval_strategy="epoch")
     except TypeError:
-        return Seq2SeqTrainingArguments(
-            **common_kwargs,
-            evaluation_strategy="epoch",
-        )
+        return Seq2SeqTrainingArguments(**common_kwargs, evaluation_strategy="epoch")
 
 
 def _save_metrics(metrics: dict[str, Any], output_dir: str | Path) -> None:
@@ -188,7 +233,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--weight-decay", type=float, default=0.01)
     parser.add_argument("--train-batch-size", type=int, default=4)
     parser.add_argument("--eval-batch-size", type=int, default=4)
-    parser.add_argument("--max-input-length", type=int, default=192)
+    parser.add_argument("--max-input-length", type=int, default=128)
     parser.add_argument("--max-target-length", type=int, default=64)
     parser.add_argument("--max-train-samples", type=int, default=0)
     parser.add_argument("--max-eval-samples", type=int, default=0)
@@ -197,6 +242,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--shuffle", action="store_true")
     parser.add_argument("--fp16", action="store_true", help="Use fp16 on compatible GPUs.")
+    parser.add_argument("--balance-train", action="store_true", help="Sample a more balanced training set across event types.")
+    parser.add_argument("--samples-per-event", type=int, default=0, help="Examples per event type when --balance-train is used.")
+    parser.add_argument("--show-event-counts", action="store_true", help="Print event type counts before training.")
     return parser.parse_args()
 
 
@@ -214,12 +262,29 @@ def main() -> None:
     set_seed(args.seed)
 
     print("Loading supervised pairs...")
-    train_pairs = _load_split(
-        args.train_csv,
-        args.max_train_samples,
-        seed=args.seed,
-        shuffle=args.shuffle,
-    )
+
+    # For balanced training, load the full training set first, balance it, then
+    # optionally cap it. For eval/test, keep the natural distribution.
+    if args.balance_train:
+        train_pairs_raw = build_pairs_from_csv(args.train_csv)
+        if args.show_event_counts:
+            _print_event_counts("Raw train", train_pairs_raw)
+        train_pairs = _balance_pairs(
+            train_pairs_raw,
+            total_limit=args.max_train_samples,
+            samples_per_event=args.samples_per_event,
+            seed=args.seed,
+        )
+        if args.shuffle:
+            random.Random(args.seed).shuffle(train_pairs)
+    else:
+        train_pairs = _load_split(
+            args.train_csv,
+            args.max_train_samples,
+            seed=args.seed,
+            shuffle=args.shuffle,
+        )
+
     eval_pairs = _load_split(
         args.validation_csv,
         args.max_eval_samples,
@@ -242,6 +307,11 @@ def main() -> None:
     print(f"Validation pairs: {len(eval_pairs)}")
     print(f"Test pairs: {len(test_pairs)}")
 
+    if args.show_event_counts:
+        _print_event_counts("Final train", train_pairs)
+        _print_event_counts("Validation", eval_pairs)
+        _print_event_counts("Test", test_pairs)
+
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     model = AutoModelForSeq2SeqLM.from_pretrained(args.model_name)
 
@@ -257,19 +327,20 @@ def main() -> None:
         args.max_input_length,
         args.max_target_length,
     )
-    test_dataset = CommentaryPairsDataset(
-        test_pairs,
-        tokenizer,
-        args.max_input_length,
-        args.max_target_length,
-    ) if test_pairs else None
+    test_dataset = (
+        CommentaryPairsDataset(
+            test_pairs,
+            tokenizer,
+            args.max_input_length,
+            args.max_target_length,
+        )
+        if test_pairs
+        else None
+    )
 
     data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model)
     training_args = _make_training_args(Seq2SeqTrainingArguments, args)
 
-    # Newer Transformers versions renamed the Trainer argument from
-    # tokenizer= to processing_class=. Keep a fallback so the script works
-    # across both newer and older installs.
     try:
         trainer = Seq2SeqTrainer(
             model=model,
@@ -310,6 +381,9 @@ def main() -> None:
     metrics["train_pairs"] = len(train_pairs)
     metrics["validation_pairs"] = len(eval_pairs)
     metrics["test_pairs"] = len(test_pairs)
+    metrics["balance_train"] = bool(args.balance_train)
+    metrics["samples_per_event"] = int(args.samples_per_event)
+    metrics["train_event_counts"] = _event_counts(train_pairs)
 
     _save_metrics(metrics, args.output_dir)
 
