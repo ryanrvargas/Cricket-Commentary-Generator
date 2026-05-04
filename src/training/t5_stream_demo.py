@@ -34,7 +34,7 @@ from src.cricket.load_events import load_match_events
 from src.training.model_infer import enforce_event_fact
 
 DEFAULT_MATCH_FILE = "1527575.json"
-DEFAULT_CHECKPOINT = "models/t5-cricket-commentary-balanced-fast"
+DEFAULT_CHECKPOINT = "models/t5-cricket-commentary-best"
 
 
 def _require_transformers():

@@ -226,7 +226,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--validation-csv", default="raw/validation.csv")
     parser.add_argument("--test-csv", default="raw/test.csv")
     parser.add_argument("--model-name", default="google/flan-t5-small")
-    parser.add_argument("--output-dir", default="models/t5-cricket-commentary")
+    parser.add_argument("--output-dir", default="models/t5-cricket-commentary-best")
     parser.add_argument("--epochs", type=float, default=1.0)
     parser.add_argument("--learning-rate", type=float, default=5e-5)
     parser.add_argument("--weight-decay", type=float, default=0.01)

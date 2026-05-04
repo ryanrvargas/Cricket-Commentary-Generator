@@ -4,3 +4,7 @@
 /models
 /models-backup
 /raw_soccer
+/src/common/__pycache__
+/src/cricket/__pycache__
+/src/soccer/__pycache__
+/src/training/__pycache__

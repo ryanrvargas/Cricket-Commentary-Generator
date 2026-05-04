@@ -8,7 +8,7 @@ fact guard. The guard only adds a short factual prefix when the model output doe
 not mention the required event fact, such as "Bowled." for wicket_bowled.
 
 Example:
-    python src/model_infer.py --checkpoint models/t5-cricket-commentary-balanced --match raw/1527575.json --event-index 13 --show-prompt
+    python src/model_infer.py --checkpoint models/t5-cricket-commentary-best --match raw/1527575.json --event-index 13 --show-prompt
 """
 
 from __future__ import annotations
@@ -244,7 +244,7 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate cricket commentary with a fine-tuned T5 checkpoint."
     )
-    parser.add_argument("--checkpoint", default="models/t5-cricket-commentary")
+    parser.add_argument("--checkpoint", default="models/t5-cricket-commentary-best")
     parser.add_argument("--match", default="", help="Optional Cricsheet match JSON path.")
     parser.add_argument("--event-index", type=int, default=0, help="0-based event index when --match is used.")
     parser.add_argument("--event-json", default="", help="Optional event row as a JSON string.")
