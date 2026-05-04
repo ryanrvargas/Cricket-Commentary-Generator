@@ -1,118 +1,128 @@
-import pandas as pd
-
-from classify_soccer_event import SOCCER_EVENT_TYPES
-
-
-def _clean_text(value):
-    if value is None:
-        return ""
-    return " ".join(str(value).strip().split())
+import json
+from pathlib import Path
 
 
-def _normalize_soccer_event_type(value):
+def _safe_name(obj, *keys):
     """
-    Normalize commentary-side event labels into the same shared soccer label set.
+    Walk nested dictionaries and return a nested 'name' value when present.
+    Example:
+        _safe_name(event, "type") -> "Pass"
+        _safe_name(event, "pass", "type") -> "Corner"
     """
-    text = _clean_text(value).lower().replace("-", "_").replace(" ", "_")
-
-    if text == "goal":
-        return "goal"
-    if text == "shot":
-        return "shot"
-    if text == "save":
-        return "save"
-    if text == "corner":
-        return "corner"
-    if text in {"free_kick", "freekick"}:
-        return "free_kick"
-    if text == "foul":
-        return "foul"
-    if text == "yellow_card":
-        return "yellow_card"
-    if text == "red_card":
-        return "red_card"
-    if text == "offside":
-        return "offside"
-    if text == "substitution":
-        return "substitution"
-    if text == "pass":
-        return "pass"
-
-    return "other"
+    current = obj
+    for key in keys:
+        if not isinstance(current, dict):
+            return ""
+        current = current.get(key, {})
+    if isinstance(current, dict):
+        return current.get("name", "")
+    return current or ""
 
 
-def load_soccer_commentary_rows(csv_path):
+def _safe_value(obj, *keys, default=""):
     """
-    Load the uploaded YallaShoot commentary CSV.
-
-    Expected columns from your file:
-    - id
-    - match_id
-    - minute
-    - commentary
-    - event_type
-    - sentiment
-    - player_mentioned
-    - team
-    - league
-    - language
+    Walk nested dictionaries and return the raw final value.
     """
-    df = pd.read_csv(csv_path)
+    current = obj
+    for key in keys:
+        if not isinstance(current, dict):
+            return default
+        current = current.get(key, default)
+    return current
 
-    required = {"commentary", "event_type", "minute", "player_mentioned", "team"}
-    missing = required - set(df.columns)
-    if missing:
-        raise ValueError(f"Missing required columns in soccer commentary CSV: {sorted(missing)}")
 
-    rows = []
-    for _, row in df.iterrows():
-        commentary = _clean_text(row.get("commentary"))
-        event_type = _normalize_soccer_event_type(row.get("event_type"))
+def load_soccer_match_events(json_path):
+    """
+    Load a StatsBomb events JSON file and flatten each event into a simpler dict.
 
-        rows.append(
+    This file is the soccer equivalent of load_events.py in the cricket pipeline.
+    It keeps only the fields most useful for classification, retrieval, and demo output.
+    """
+    json_path = Path(json_path)
+
+    with open(json_path, "r", encoding="utf-8") as f:
+        events = json.load(f)
+
+    match_id = json_path.stem
+    flattened = []
+
+    for fallback_index, event in enumerate(events, start=1):
+        event_type_raw = _safe_name(event, "type")
+        team = _safe_name(event, "team")
+        player = _safe_name(event, "player")
+        position = _safe_name(event, "position")
+
+        minute = event.get("minute", 0)
+        second = event.get("second", 0)
+        period = event.get("period", 0)
+        timestamp = event.get("timestamp", "")
+        event_index = event.get("index", fallback_index)
+
+        pass_type = _safe_name(event, "pass", "type")
+        pass_outcome = _safe_name(event, "pass", "outcome")
+        pass_height = _safe_name(event, "pass", "height")
+        pass_recipient = _safe_name(event, "pass", "recipient")
+
+        shot_outcome = _safe_name(event, "shot", "outcome")
+        shot_type = _safe_name(event, "shot", "type")
+        shot_xg = _safe_value(event, "shot", "statsbomb_xg", default=0.0)
+
+        goalkeeper_type = _safe_name(event, "goalkeeper", "type")
+        goalkeeper_outcome = _safe_name(event, "goalkeeper", "outcome")
+
+        foul_card = _safe_name(event, "foul_committed", "card")
+        substitution_replacement = _safe_name(event, "substitution", "replacement")
+
+        flattened.append(
             {
                 "sport": "soccer",
-                "match_id": _clean_text(row.get("match_id")),
-                "minute": row.get("minute", 0),
-                "commentary": commentary,
-                "event_type": event_type,
-                "player": _clean_text(row.get("player_mentioned")),
-                "team": _clean_text(row.get("team")),
-                "league": _clean_text(row.get("league")),
-                "language": _clean_text(row.get("language")),
-                "sentiment": _clean_text(row.get("sentiment")),
+                "match_id": match_id,
+                "event_index": event_index,
+                "period": period,
+                "timestamp": timestamp,
+                "minute": minute,
+                "second": second,
+                "team": team,
+                "player": player,
+                "position": position,
+                "event_type_raw": event_type_raw,
+                "play_pattern": _safe_name(event, "play_pattern"),
+                "possession_team": _safe_name(event, "possession_team"),
+                "pass_type": pass_type,
+                "pass_outcome": pass_outcome,
+                "pass_height": pass_height,
+                "pass_recipient": pass_recipient,
+                "shot_outcome": shot_outcome,
+                "shot_type": shot_type,
+                "shot_xg": shot_xg,
+                "goalkeeper_type": goalkeeper_type,
+                "goalkeeper_outcome": goalkeeper_outcome,
+                "foul_card": foul_card,
+                "substitution_replacement": substitution_replacement,
+                "under_pressure": bool(event.get("under_pressure", False)),
+                # Compatibility aliases so the current cricket-shaped retriever can still rank.
+                "batter": player,
+                "bowler": team,
+                "runs_off_bat": 1 if str(shot_outcome).strip().lower() == "goal" else 0,
+                "wicket_type": "",
+                "over": minute,
             }
         )
 
-    return rows
-
-
-def build_soccer_commentary_bank(csv_path):
-    """
-    Group commentary lines by soccer event type for retrieval.
-    """
-    rows = load_soccer_commentary_rows(csv_path)
-    bank = {label: [] for label in SOCCER_EVENT_TYPES}
-
-    for row in rows:
-        label = row["event_type"]
-        commentary = row["commentary"]
-        if commentary:
-            bank[label].append(commentary)
-
-    return bank
+    return flattened
 
 
 if __name__ == "__main__":
-    rows = load_soccer_commentary_rows("raw_soccer/yallashoot/commentary_train.csv")
-    bank = build_soccer_commentary_bank("raw_soccer/yallashoot/commentary_train.csv")
+    sample_path = Path("raw_soccer/statsbomb/events")
+    json_files = sorted(sample_path.glob("*.json"))
 
-    print(f"Loaded {len(rows)} soccer commentary rows.\n")
-    print("First 3 rows:")
-    for row in rows[:3]:
-        print(row)
-        print()
+    if not json_files:
+        raise FileNotFoundError("No StatsBomb event files found in raw_soccer/statsbomb/events")
 
-    print("Bank counts:")
-    for label, items in bank.items():
-        print(f"{label}: {len(items)}")
+    events = load_soccer_match_events(json_files[0])
+    print(f"Loaded file: {json_files[0].name}")
+    print(f"Total events: {len(events)}")
+    print()
+
+    for event in events[:10]:
+        print(event)
