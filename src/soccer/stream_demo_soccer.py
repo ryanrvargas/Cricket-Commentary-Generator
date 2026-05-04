@@ -2,11 +2,11 @@ import argparse
 import time
 from pathlib import Path
 
-from load_soccer_events import load_soccer_match_events
-from classify_soccer_event import classify_soccer_event
-from load_soccer_commentary import build_soccer_commentary_bank
-from retriever import get_commentary_examples
-from soccer_generator import generate_soccer_commentary
+from soccer.load_soccer_events import load_soccer_match_events
+from soccer.classify_soccer_event import classify_soccer_event
+from soccer.load_soccer_commentary import build_soccer_commentary_bank
+from common.retriever import get_commentary_examples
+from soccer.soccer_generator import generate_soccer_commentary
 
 
 DEFAULT_COMMENTARY_FILE = "commentary_train_augmented.csv"

@@ -1,4 +1,4 @@
-from generator import generate_commentary, _style_key
+from cricket.generator import generate_commentary, _style_key
 
 
 EVENT = {

@@ -1,5 +1,5 @@
-from load_events import load_match_events
-from classify_event import classify_event
+from cricket.load_events import load_match_events
+from cricket.classify_event import classify_event
 
 match_path = "raw/1527574.json"   # change if needed
 

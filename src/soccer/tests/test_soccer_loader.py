@@ -1,5 +1,5 @@
 from pathlib import Path
-from load_soccer_events import load_soccer_match_events
+from soccer.load_soccer_events import load_soccer_match_events
 
 events_dir = Path("raw_soccer/statsbomb/events")
 

@@ -2,11 +2,11 @@ import argparse
 import time
 from pathlib import Path
 
-from load_events import load_match_events
-from classify_event import classify_event
-from load_commentary import build_commentary_bank
-from retriever import get_commentary_examples
-from generator import generate_commentary
+from cricket.load_events import load_match_events
+from cricket.classify_event import classify_event
+from cricket.load_commentary import build_commentary_bank
+from common.retriever import get_commentary_examples
+from cricket.generator import generate_commentary
 
 
 DEFAULT_MATCH_FILE = "1527575.json"

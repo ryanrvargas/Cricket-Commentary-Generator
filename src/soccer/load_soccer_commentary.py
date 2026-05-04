@@ -1,6 +1,6 @@
 import pandas as pd
 
-from classify_soccer_event import SOCCER_EVENT_TYPES
+from soccer.classify_soccer_event import SOCCER_EVENT_TYPES
 
 
 def _clean_text(value):

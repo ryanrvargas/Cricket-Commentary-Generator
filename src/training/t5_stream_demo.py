@@ -28,10 +28,10 @@ for path in (CURRENT_DIR, PROJECT_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from build_supervised_pairs import prompt_from_match_event  # noqa: E402
-from classify_event import classify_event  # noqa: E402
-from load_events import load_match_events  # noqa: E402
-from model_infer import enforce_event_fact  # noqa: E402
+from training.build_supervised_pairs import prompt_from_match_event  # noqa: E402
+from cricket.classify_event import classify_event  # noqa: E402
+from cricket.load_events import load_match_events  # noqa: E402
+from training.model_infer import enforce_event_fact  # noqa: E402
 
 
 DEFAULT_MATCH_FILE = "1527575.json"

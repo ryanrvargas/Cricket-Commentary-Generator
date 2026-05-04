@@ -1,7 +1,7 @@
-from load_commentary import build_commentary_bank
-from load_events import load_match_events
-from classify_event import classify_event
-from retriever import get_commentary_examples
+from cricket.load_commentary import build_commentary_bank
+from cricket.load_events import load_match_events
+from cricket.classify_event import classify_event
+from common.retriever import get_commentary_examples
 
 bank = build_commentary_bank("raw/train.csv")
 
