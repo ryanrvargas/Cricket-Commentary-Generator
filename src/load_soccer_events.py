@@ -1,63 +1,118 @@
-import json
-from pathlib import Path
+import pandas as pd
+
+from classify_soccer_event import SOCCER_EVENT_TYPES
 
 
-def _safe_name(obj, *keys):
-    current = obj
-    for key in keys:
-        if not isinstance(current, dict):
-            return ""
-        current = current.get(key, {})
-    if isinstance(current, dict):
-        return current.get("name", "")
-    return current or ""
+def _clean_text(value):
+    if value is None:
+        return ""
+    return " ".join(str(value).strip().split())
 
 
-def load_soccer_match_events(json_path):
+def _normalize_soccer_event_type(value):
     """
-    Load a StatsBomb events JSON file and flatten each event into a simple dict.
+    Normalize commentary-side event labels into the same shared soccer label set.
     """
-    json_path = Path(json_path)
+    text = _clean_text(value).lower().replace("-", "_").replace(" ", "_")
 
-    with open(json_path, "r", encoding="utf-8") as f:
-        events = json.load(f)
+    if text == "goal":
+        return "goal"
+    if text == "shot":
+        return "shot"
+    if text == "save":
+        return "save"
+    if text == "corner":
+        return "corner"
+    if text in {"free_kick", "freekick"}:
+        return "free_kick"
+    if text == "foul":
+        return "foul"
+    if text == "yellow_card":
+        return "yellow_card"
+    if text == "red_card":
+        return "red_card"
+    if text == "offside":
+        return "offside"
+    if text == "substitution":
+        return "substitution"
+    if text == "pass":
+        return "pass"
 
-    match_id = json_path.stem
-    flattened = []
+    return "other"
 
-    for idx, event in enumerate(events):
-        event_type_raw = _safe_name(event, "type")
-        team = _safe_name(event, "team")
-        player = _safe_name(event, "player")
-        period = event.get("period", 0)
-        minute = event.get("minute", 0)
-        second = event.get("second", 0)
 
-        pass_type = _safe_name(event, "pass", "type")
-        shot_outcome = _safe_name(event, "shot", "outcome")
-        shot_type = _safe_name(event, "shot", "type")
-        foul_card = _safe_name(event, "foul_committed", "card")
-        substitution_replacement = _safe_name(event, "substitution", "replacement")
-        goalkeeper_outcome = _safe_name(event, "goalkeeper", "outcome")
+def load_soccer_commentary_rows(csv_path):
+    """
+    Load the uploaded YallaShoot commentary CSV.
 
-        flattened.append(
+    Expected columns from your file:
+    - id
+    - match_id
+    - minute
+    - commentary
+    - event_type
+    - sentiment
+    - player_mentioned
+    - team
+    - league
+    - language
+    """
+    df = pd.read_csv(csv_path)
+
+    required = {"commentary", "event_type", "minute", "player_mentioned", "team"}
+    missing = required - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing required columns in soccer commentary CSV: {sorted(missing)}")
+
+    rows = []
+    for _, row in df.iterrows():
+        commentary = _clean_text(row.get("commentary"))
+        event_type = _normalize_soccer_event_type(row.get("event_type"))
+
+        rows.append(
             {
                 "sport": "soccer",
-                "match_id": match_id,
-                "event_index": idx,
-                "period": period,
-                "minute": minute,
-                "second": second,
-                "team": team,
-                "player": player,
-                "event_type_raw": event_type_raw,
-                "pass_type": pass_type,
-                "shot_outcome": shot_outcome,
-                "shot_type": shot_type,
-                "foul_card": foul_card,
-                "substitution_replacement": substitution_replacement,
-                "goalkeeper_outcome": goalkeeper_outcome,
+                "match_id": _clean_text(row.get("match_id")),
+                "minute": row.get("minute", 0),
+                "commentary": commentary,
+                "event_type": event_type,
+                "player": _clean_text(row.get("player_mentioned")),
+                "team": _clean_text(row.get("team")),
+                "league": _clean_text(row.get("league")),
+                "language": _clean_text(row.get("language")),
+                "sentiment": _clean_text(row.get("sentiment")),
             }
         )
 
-    return flattened
+    return rows
+
+
+def build_soccer_commentary_bank(csv_path):
+    """
+    Group commentary lines by soccer event type for retrieval.
+    """
+    rows = load_soccer_commentary_rows(csv_path)
+    bank = {label: [] for label in SOCCER_EVENT_TYPES}
+
+    for row in rows:
+        label = row["event_type"]
+        commentary = row["commentary"]
+        if commentary:
+            bank[label].append(commentary)
+
+    return bank
+
+
+if __name__ == "__main__":
+    rows = load_soccer_commentary_rows("raw_soccer/yallashoot/commentary_train.csv")
+    bank = build_soccer_commentary_bank("raw_soccer/yallashoot/commentary_train.csv")
+
+    print(f"Loaded {len(rows)} soccer commentary rows.\n")
+    print("First 3 rows:")
+    for row in rows[:3]:
+        print(row)
+        print()
+
+    print("Bank counts:")
+    for label, items in bank.items():
+        print(f"{label}: {len(items)}")
