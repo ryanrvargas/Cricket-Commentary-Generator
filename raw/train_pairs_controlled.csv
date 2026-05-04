@@ -1,0 +1,351 @@
+input_text,target_text,event_type,batter,bowler,play_type,target_mode
+"sport: cricket
+event_type: boundary_four
+batter: Asad Shafiq
+bowler: Kagiso Rabada
+runs: 4
+wicket: none
+generate commentary:",Four. Asad Shafiq gets it to the rope.,boundary_four,Asad Shafiq,Kagiso Rabada,four,controlled
+"sport: cricket
+event_type: single
+batter: Marlon Samuels
+bowler: Blessing Muzarabani
+runs: 1
+wicket: none
+generate commentary:",One run. Marlon Samuels works it away.,single,Marlon Samuels,Blessing Muzarabani,run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Ben Stokes
+bowler: Umesh Yadav
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Ben Stokes defends.,dot_ball,Ben Stokes,Umesh Yadav,no run,controlled
+"sport: cricket
+event_type: single
+batter: Sunil Narine
+bowler: Axar Patel
+runs: 1
+wicket: none
+generate commentary:",One run. Sunil Narine picks up a single.,single,Sunil Narine,Axar Patel,run,controlled
+"sport: cricket
+event_type: single
+batter: Joe Root
+bowler: Yuzvendra Chahal
+runs: 1
+wicket: none
+generate commentary:",One run. Joe Root rotates the strike.,single,Joe Root,Yuzvendra Chahal,run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Devendra Bishoo
+bowler: Dilruwan Perera
+runs: 0
+wicket: none
+generate commentary:",No run. Devendra Bishoo cannot score.,dot_ball,Devendra Bishoo,Dilruwan Perera,no run,controlled
+"sport: cricket
+event_type: single
+batter: Kusal Mendis
+bowler: Adil Rashid
+runs: 1
+wicket: none
+generate commentary:",One run. Kusal Mendis picks up a single.,single,Kusal Mendis,Adil Rashid,run,controlled
+"sport: cricket
+event_type: double
+batter: Niroshan Dickwella
+bowler: Tom Curran
+runs: 2
+wicket: none
+generate commentary:",Two runs. Niroshan Dickwella places it into the gap.,double,Niroshan Dickwella,Tom Curran,run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Dean Elgar
+bowler: Ravichandran Ashwin
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Dean Elgar defends.,dot_ball,Dean Elgar,Ravichandran Ashwin,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Theunis de Bruyn
+bowler: Rangana Herath
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Theunis de Bruyn plays with no run.,dot_ball,Theunis de Bruyn,Rangana Herath,no run,controlled
+"sport: cricket
+event_type: single
+batter: Joe Root
+bowler: Umesh Yadav
+runs: 1
+wicket: none
+generate commentary:",One run. Joe Root picks up a single.,single,Joe Root,Umesh Yadav,run,controlled
+"sport: cricket
+event_type: boundary_four
+batter: Murali Vijay
+bowler: Suranga Lakmal
+runs: 4
+wicket: none
+generate commentary:",Four. Murali Vijay finds the boundary.,boundary_four,Murali Vijay,Suranga Lakmal,four,controlled
+"sport: cricket
+event_type: boundary_six
+batter: Farhaan Behardien
+bowler: Yuzvendra Chahal
+runs: 6
+wicket: none
+generate commentary:",Six. Farhaan Behardien launches it away.,boundary_six,Farhaan Behardien,Yuzvendra Chahal,six,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Joe Root
+bowler: Mohammed Shami
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Joe Root plays with no run.,dot_ball,Joe Root,Mohammed Shami,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Mohammad Hafeez
+bowler: Dwaine Pretorius
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Mohammad Hafeez plays with no run.,dot_ball,Mohammad Hafeez,Dwaine Pretorius,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Dawlat Zadran
+bowler: Sikandar Raza
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Dawlat Zadran defends.,dot_ball,Dawlat Zadran,Sikandar Raza,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Murali Vijay
+bowler: Suranga Lakmal
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Murali Vijay plays with no run.,dot_ball,Murali Vijay,Suranga Lakmal,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Theunis de Bruyn
+bowler: Mohammad Amir
+runs: 0
+wicket: none
+generate commentary:",No run. Theunis de Bruyn cannot score.,dot_ball,Theunis de Bruyn,Mohammad Amir,no run,controlled
+"sport: cricket
+event_type: no_ball
+batter: Dean Elgar
+bowler: Dilruwan Perera
+runs: 0
+wicket: none
+generate commentary:",No-ball. Extra run conceded.,no_ball,Dean Elgar,Dilruwan Perera,no ball,controlled
+"sport: cricket
+event_type: boundary_four
+batter: Eoin Morgan
+bowler: Akila Dananjaya
+runs: 4
+wicket: none
+generate commentary:",Four. Eoin Morgan drives it away.,boundary_four,Eoin Morgan,Akila Dananjaya,four,controlled
+"sport: cricket
+event_type: single
+batter: Babar Azam
+bowler: Mitchell Santner
+runs: 1
+wicket: none
+generate commentary:",One run. Babar Azam works it away.,single,Babar Azam,Mitchell Santner,run,controlled
+"sport: cricket
+event_type: single
+batter: Roston Chase
+bowler: Chris Mpofu
+runs: 1
+wicket: none
+generate commentary:",One run. Roston Chase picks up a single.,single,Roston Chase,Chris Mpofu,run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Tamim Iqbal
+bowler: Shardul Thakur
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Tamim Iqbal defends.,dot_ball,Tamim Iqbal,Shardul Thakur,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Jason Holder
+bowler: Dilruwan Perera
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Jason Holder plays with no run.,dot_ball,Jason Holder,Dilruwan Perera,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Shannon Gabriel
+bowler: Graeme Cremer
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Shannon Gabriel defends.,dot_ball,Shannon Gabriel,Graeme Cremer,no run,controlled
+"sport: cricket
+event_type: single
+batter: Jason Holder
+bowler: George Dockrell
+runs: 1
+wicket: none
+generate commentary:",One run. Jason Holder picks up a single.,single,Jason Holder,George Dockrell,run,controlled
+"sport: cricket
+event_type: single
+batter: Dimuth Karunaratne
+bowler: Moeen Ali
+runs: 1
+wicket: none
+generate commentary:",One run. Dimuth Karunaratne rotates the strike.,single,Dimuth Karunaratne,Moeen Ali,run,controlled
+"sport: cricket
+event_type: single
+batter: Jean-Paul Duminy
+bowler: Suranga Lakmal
+runs: 1
+wicket: none
+generate commentary:",One run. Jean-Paul Duminy rotates the strike.,single,Jean-Paul Duminy,Suranga Lakmal,run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Shadab Khan
+bowler: Duanne Olivier
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Shadab Khan plays with no run.,dot_ball,Shadab Khan,Duanne Olivier,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Angelo Mathews
+bowler: Dale Steyn
+runs: 0
+wicket: none
+generate commentary:",No run. Angelo Mathews cannot score.,dot_ball,Angelo Mathews,Dale Steyn,no run,controlled
+"sport: cricket
+event_type: double
+batter: Gulraiz Sadaf
+bowler: Imran Tahir
+runs: 2
+wicket: none
+generate commentary:",Two runs. Gulraiz Sadaf runs well.,double,Gulraiz Sadaf,Imran Tahir,run,controlled
+"sport: cricket
+event_type: single
+batter: Rumman Raees
+bowler: Tim Southee
+runs: 1
+wicket: none
+generate commentary:",One run. Rumman Raees picks up a single.,single,Rumman Raees,Tim Southee,run,controlled
+"sport: cricket
+event_type: single
+batter: Rohit Sharma
+bowler: Rubel Hossain
+runs: 1
+wicket: none
+generate commentary:",One run. Rohit Sharma picks up a single.,single,Rohit Sharma,Rubel Hossain,run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Dwayne Bravo
+bowler: Mohammed Siraj
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Dwayne Bravo defends.,dot_ball,Dwayne Bravo,Mohammed Siraj,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Dimuth Karunaratne
+bowler: Kagiso Rabada
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Dimuth Karunaratne plays with no run.,dot_ball,Dimuth Karunaratne,Kagiso Rabada,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Mohammad Abbas
+bowler: Vernon Philander
+runs: 0
+wicket: none
+generate commentary:",No run. Mohammad Abbas cannot score.,dot_ball,Mohammad Abbas,Vernon Philander,no run,controlled
+"sport: cricket
+event_type: boundary_four
+batter: Danushka Gunathilaka
+bowler: Dale Steyn
+runs: 4
+wicket: none
+generate commentary:",Four. Danushka Gunathilaka finds the boundary.,boundary_four,Danushka Gunathilaka,Dale Steyn,four,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Danushka Gunathilaka
+bowler: Dale Steyn
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Danushka Gunathilaka defends.,dot_ball,Danushka Gunathilaka,Dale Steyn,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Graeme Cremer
+bowler: Kraigg Brathwaite
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Graeme Cremer defends.,dot_ball,Graeme Cremer,Kraigg Brathwaite,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Niroshan Dickwella
+bowler: Lungi Ngidi
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Niroshan Dickwella defends.,dot_ball,Niroshan Dickwella,Lungi Ngidi,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Shane Dowrich
+bowler: Tendai Chisoro
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Shane Dowrich plays with no run.,dot_ball,Shane Dowrich,Tendai Chisoro,no run,controlled
+"sport: cricket
+event_type: single
+batter: Ben Stokes
+bowler: Imran Tahir
+runs: 1
+wicket: none
+generate commentary:",One run. Ben Stokes rotates the strike.,single,Ben Stokes,Imran Tahir,run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Malcolm Waller
+bowler: Suranga Lakmal
+runs: 0
+wicket: none
+generate commentary:",No run. Malcolm Waller cannot score.,dot_ball,Malcolm Waller,Suranga Lakmal,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Hashim Amla
+bowler: Mohammad Amir
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Hashim Amla plays with no run.,dot_ball,Hashim Amla,Mohammad Amir,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Fakhar Zaman
+bowler: Junaid Khan
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Fakhar Zaman plays with no run.,dot_ball,Fakhar Zaman,Junaid Khan,no run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Lockie Ferguson
+bowler: Tom Curran
+runs: 0
+wicket: none
+generate commentary:",No run. Lockie Ferguson cannot score.,dot_ball,Lockie Ferguson,Tom Curran,no run,controlled
+"sport: cricket
+event_type: single
+batter: Shane Dowrich
+bowler: Dilruwan Perera
+runs: 1
+wicket: none
+generate commentary:",One run. Shane Dowrich rotates the strike.,single,Shane Dowrich,Dilruwan Perera,run,controlled
+"sport: cricket
+event_type: dot_ball
+batter: Mohammad Amir
+bowler: Trent Boult
+runs: 0
+wicket: none
+generate commentary:",Dot ball. Mohammad Amir defends.,dot_ball,Mohammad Amir,Trent Boult,no run,controlled
+"sport: cricket
+event_type: single
+batter: Virat Kohli
+bowler: Sam Curran
+runs: 1
+wicket: none
+generate commentary:",One run. Virat Kohli rotates the strike.,single,Virat Kohli,Sam Curran,run,controlled
+"sport: cricket
+event_type: single
+batter: Reeza Hendricks
+bowler: Usman Shinwari
+runs: 1
+wicket: none
+generate commentary:",One run. Reeza Hendricks picks up a single.,single,Reeza Hendricks,Usman Shinwari,run,controlled

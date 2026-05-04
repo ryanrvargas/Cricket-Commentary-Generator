@@ -74,23 +74,23 @@ def controlled_target_from_row(row: dict[str, Any]) -> str:
     templates = {
         "dot_ball": [
             f"Dot ball. {batter} defends.",
-            f"Dot ball. {bowler} keeps {batter} quiet.",
+            f"Dot ball. {batter} plays with no run.",
             f"No run. {batter} cannot score.",
         ],
         "single": [
-            f"One run. {batter} works it for a single.",
             f"One run. {batter} picks up a single.",
+            f"One run. {batter} works it away.",
             f"One run. {batter} rotates the strike.",
         ],
         "double": [
             f"Two runs. {batter} comes back for two.",
             f"Two runs. {batter} places it into the gap.",
-            f"Two runs. Good running from {batter}.",
+            f"Two runs. {batter} runs well.",
         ],
         "triple": [
-            f"Three runs. {batter} runs hard for three.",
+            f"Three runs. {batter} runs hard.",
             f"Three runs. {batter} finds the gap.",
-            f"Three runs. Excellent running from {batter}.",
+            f"Three runs. {batter} comes back for three.",
         ],
         "boundary_four": [
             f"Four. {batter} finds the boundary.",
@@ -103,43 +103,43 @@ def controlled_target_from_row(row: dict[str, Any]) -> str:
             f"Six. {batter} launches it away.",
         ],
         "wicket_bowled": [
-            f"Bowled. {batter} is beaten and the stumps are hit.",
+            f"Bowled. The stumps are hit.",
             f"Bowled. {bowler} hits the stumps.",
-            f"Bowled. {batter} has to go.",
+            f"Bowled. {batter} is beaten.",
         ],
         "wicket_caught": [
+            f"Caught. The catch is taken.",
             f"Caught. {batter} is caught off {bowler}.",
-            f"Caught. {batter} has to go.",
             f"Caught. {bowler} gets the wicket.",
         ],
         "wicket_lbw": [
             f"LBW. {batter} is trapped in front.",
-            f"LBW. {batter} has to go.",
+            f"LBW. The umpire gives it.",
             f"LBW. {bowler} strikes.",
         ],
         "run_out": [
-            f"Run out. {batter} is short of the crease.",
-            f"Run out. {batter} cannot make the ground.",
-            f"Run out. Sharp fielding removes {batter}.",
+            f"Run out. The batter is short of the crease.",
+            f"Run out. Sharp fielding gets the wicket.",
+            f"Run out. The throw beats the batter.",
         ],
         "wide": [
             f"Wide. {bowler} misses the line.",
             f"Wide. Extra run conceded.",
-            f"Wide. That is too far from {batter}.",
+            f"Wide. That is too far away.",
         ],
         "no_ball": [
             f"No-ball. {bowler} oversteps.",
             f"No-ball. Extra run conceded.",
-            f"No-ball. {bowler} has to bowl that again.",
+            f"No-ball. That must be bowled again.",
         ],
         "bye_or_legbye": [
             "Extras. They pick up runs not off the bat.",
             "Extras. The batters take the extra run.",
-            "Extras. Not off the bat, but runs are added.",
+            "Extras. Runs are added without a shot.",
         ],
         "other": [
-            f"{batter} plays the delivery.",
             "The ball is played.",
+            f"{batter} plays the delivery.",
             f"{bowler} completes the delivery.",
         ],
     }
