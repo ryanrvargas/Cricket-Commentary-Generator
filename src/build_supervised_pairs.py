@@ -3,27 +3,23 @@ build_supervised_pairs.py
 -------------------------
 Build supervised prompt-target pairs for fine-tuning a small text-to-text model.
 
-This file reuses the existing commentary parser in load_commentary.py. It turns
-rows from train.csv, validation.csv, or test.csv into examples like:
+This version intentionally uses a simpler prompt than the first experimental
+version. The commentary CSV does not reliably contain live-match fields such as
+over number or score context, so those fields are not included in the model
+prompt. Keeping the training prompt and inference prompt aligned should make the
+model easier to fine-tune and less likely to ignore the event type.
 
-input_text:
+Example input_text:
     sport: cricket
     event_type: boundary_four
     batter: Mohammad Rizwan
     bowler: Mohammad Ali
     runs: 4
-    extras: 0
     wicket: none
-    over: unknown
-    score_context: innings wickets 0; over runs 8
     generate commentary:
 
-target_text:
+Example target_text:
     Mohammad Rizwan leans into the drive and finds the boundary.
-
-The CSV commentary data does not contain every live-match field that Cricsheet
-contains, so missing fields are marked honestly as "unknown" instead of being
-invented.
 """
 
 from __future__ import annotations
@@ -70,22 +66,20 @@ def _clean_target(value: Any) -> str:
     return _clean_field(value, default="")
 
 
-def _infer_runs_and_extras(row: dict[str, Any]) -> tuple[int, int]:
+def _infer_runs(row: dict[str, Any]) -> int:
     """
-    Split the parsed CSV total runs into runs/extras for the prompt.
+    Infer the most useful runs value for the simplified prompt.
 
-    The commentary CSV gives total runs and play type, but it does not always
-    expose the same detailed runs_off_bat/extras split as the Cricsheet JSON.
-    For normal scoring events, treat total_runs as batter runs. For clear extra
-    events, treat total_runs as extras.
+    For extras, the commentary CSV total is not batter runs, so use 0. For normal
+    scoring shots, use the parsed total_runs value.
     """
     total_runs = int(row.get("total_runs", 0) or 0)
     event_type = row.get("event_type", "other")
 
     if event_type in EXTRA_EVENT_TYPES:
-        return 0, total_runs
+        return 0
 
-    return total_runs, 0
+    return total_runs
 
 
 def _wicket_text(row: dict[str, Any]) -> str:
@@ -108,16 +102,13 @@ def prompt_from_fields(
     batter: str,
     bowler: str,
     runs: int | str = 0,
-    extras: int | str = 0,
     wicket: str = "none",
-    over: int | float | str = "unknown",
-    score_context: str = "unknown",
 ) -> str:
     """
     Build the text-to-text input prompt used for fine-tuning and inference.
 
     Keeping this format in one function matters. The model should see the same
-    input shape during training that it will see during inference.
+    input shape during training that it sees during inference.
     """
     return "\n".join(
         [
@@ -126,10 +117,7 @@ def prompt_from_fields(
             f"batter: {_clean_field(batter)}",
             f"bowler: {_clean_field(bowler)}",
             f"runs: {_clean_field(runs, default='0')}",
-            f"extras: {_clean_field(extras, default='0')}",
             f"wicket: {_clean_field(wicket, default='none')}",
-            f"over: {_clean_field(over)}",
-            f"score_context: {_clean_field(score_context)}",
             "generate commentary:",
         ]
     )
@@ -139,21 +127,12 @@ def prompt_from_commentary_row(row: dict[str, Any]) -> str:
     """
     Convert one parsed commentary CSV row into a model input prompt.
     """
-    runs, extras = _infer_runs_and_extras(row)
-    score_context = (
-        f"innings wickets {int(row.get('innings_wickets', 0) or 0)}; "
-        f"over runs {int(row.get('over_runs', 0) or 0)}"
-    )
-
     return prompt_from_fields(
         event_type=row.get("event_type", "other"),
         batter=row.get("batsman_name", "unknown"),
         bowler=row.get("bowler_name", "unknown"),
-        runs=runs,
-        extras=extras,
+        runs=_infer_runs(row),
         wicket=_wicket_text(row),
-        over="unknown",
-        score_context=score_context,
     )
 
 
@@ -165,27 +144,17 @@ def prompt_from_match_event(
     """
     Convert one live/simulated Cricsheet event dictionary into a model prompt.
 
-    This is used by model_infer.py so inference matches the training prompt
-    format as closely as possible.
+    The context parameter is accepted for compatibility with model_infer.py, but
+    this simplified prompt intentionally does not include score or over fields.
     """
     wicket = event.get("wicket_type") or "none"
-    over = f"{event.get('over', 'unknown')}.{event.get('ball_in_over', 'unknown')}"
-
-    if context:
-        score = f"{context.get('innings_score', 0)}/{context.get('innings_wickets', 0)}"
-        score_context = score
-    else:
-        score_context = "unknown"
 
     return prompt_from_fields(
         event_type=event_type,
         batter=event.get("batter", "unknown"),
         bowler=event.get("bowler", "unknown"),
         runs=event.get("runs_off_bat", 0),
-        extras=event.get("extras", 0),
         wicket=wicket,
-        over=over,
-        score_context=score_context,
     )
 
 

@@ -4,8 +4,8 @@ model_infer.py
 Generate commentary from a fine-tuned T5/FLAN-T5 checkpoint.
 
 The main function accepts a Cricsheet-style event row, formats it with the same
-prompt structure used during fine-tuning, and asks the model to generate one
-commentary line.
+simplified prompt structure used during fine-tuning, and asks the model to
+generate one commentary line.
 
 Example using a saved match file:
     python src/model_infer.py --checkpoint models/t5-cricket-commentary --match raw/1527575.json --event-index 2 --show-prompt
