@@ -34,7 +34,7 @@ for path in (CURRENT_DIR, PROJECT_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from src.training.build_supervised_pairs import build_pairs_from_csv
+from src.training.build_supervised_pairs_controlled import build_pairs_from_csv
 
 def _require_transformers():
     """
