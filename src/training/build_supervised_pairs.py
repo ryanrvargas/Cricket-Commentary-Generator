@@ -40,7 +40,7 @@ for path in (CURRENT_DIR, PROJECT_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from cricket.load_commentary import load_commentary_rows  # noqa: E402
+from src.cricket.load_commentary import load_commentary_rows
 
 EXTRA_EVENT_TYPES = {"wide", "no_ball", "bye_or_legbye"}
 

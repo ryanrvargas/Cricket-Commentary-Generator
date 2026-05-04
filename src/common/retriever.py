@@ -9,8 +9,7 @@ This version supports:
 - sport-aware query building for both cricket and soccer
 """
 
-from common.tfidf_vectorizer import TfidfVectorizerInHouse, cosine_similarity_sparse
-
+from src.common.tfidf_vectorizer import TfidfVectorizerInHouse, cosine_similarity_sparse
 
 def _join_nonempty(parts):
     """

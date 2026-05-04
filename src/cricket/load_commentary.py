@@ -25,8 +25,7 @@ import re
 import pandas as pd
 import html
 
-from cricket.event_types import EVENT_TYPES
-
+from src.cricket.event_types import EVENT_TYPES
 
 def _clean_text(text):
     """

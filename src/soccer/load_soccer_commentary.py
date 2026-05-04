@@ -1,7 +1,6 @@
 import pandas as pd
 
-from soccer.classify_soccer_event import SOCCER_EVENT_TYPES
-
+from src.soccer.classify_soccer_event import SOCCER_EVENT_TYPES
 
 def _clean_text(value):
     if value is None:

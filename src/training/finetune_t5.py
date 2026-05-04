@@ -34,8 +34,7 @@ for path in (CURRENT_DIR, PROJECT_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from training.build_supervised_pairs import build_pairs_from_csv  # noqa: E402
-
+from src.training.build_supervised_pairs import build_pairs_from_csv
 
 def _require_transformers():
     """

@@ -28,11 +28,10 @@ for path in (CURRENT_DIR, PROJECT_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
 
-from training.build_supervised_pairs import prompt_from_match_event  # noqa: E402
-from cricket.classify_event import classify_event  # noqa: E402
-from cricket.load_events import load_match_events  # noqa: E402
-from training.model_infer import enforce_event_fact  # noqa: E402
-
+from src.training.build_supervised_pairs import prompt_from_match_event
+from src.cricket.classify_event import classify_event
+from src.cricket.load_events import load_match_events
+from src.training.model_infer import enforce_event_fact
 
 DEFAULT_MATCH_FILE = "1527575.json"
 DEFAULT_CHECKPOINT = "models/t5-cricket-commentary-balanced-fast"
