@@ -82,6 +82,34 @@ def enforce_event_fact(commentary: str, event: dict[str, Any], event_type: str) 
     if not commentary:
         commentary = "The ball is played."
 
+    normalized = _normalized(commentary)
+
+    if event_type == "boundary_four":
+        six_like_phrases = [
+            "goes into the stands",
+            "into the stands",
+            "clears the rope",
+            "clears the boundary",
+            "goes over the boundary",
+            "maximum",
+        ]
+
+        if any(phrase in normalized for phrase in six_like_phrases):
+            return "Four. The ball reaches the fence."
+
+    if event_type == "boundary_six":
+        four_like_phrases = [
+            "reaches the fence",
+            "reaches the boundary",
+            "goes to the fence",
+            "goes to the boundary",
+        ]
+
+        if any(phrase in normalized for phrase in four_like_phrases):
+            return "Six. The ball goes into the stands."
+
+    
+
     if _has_event_keyword(event_type, commentary):
         return commentary
 
