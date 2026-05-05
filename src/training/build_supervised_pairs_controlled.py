@@ -4,22 +4,28 @@ build_supervised_pairs_controlled.py
 Build controlled prompt-target pairs for T5 fine-tuning.
 
 This builder keeps the same prompt schema as build_supervised_pairs.py, but it
-replaces raw commentary prose with short controlled event-faithful targets.
+replaces raw commentary prose with one canonical event-faithful target per event.
 
 Goal:
     Make the model learn the correct relationship between event_type/runs/wicket
     and the generated commentary line.
 
-Example:
-    event_type: boundary_four -> "Four. Rizwan finds the boundary."
-    event_type: dot_ball      -> "Dot ball. Rizwan defends."
-    event_type: wicket_bowled -> "Bowled. Khawaja is beaten and the stumps are hit."
+Example input_text:
+    sport: cricket
+    event_type: boundary_four
+    batter: Mohammad Rizwan
+    bowler: Mohammad Ali
+    runs: 4
+    wicket: none
+    generate commentary:
+
+Example target_text:
+    Four. The ball reaches the boundary.
 """
 
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import random
 import sys
@@ -30,6 +36,7 @@ import pandas as pd
 
 CURRENT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = CURRENT_DIR.parent.parent
+
 for path in (CURRENT_DIR, PROJECT_ROOT):
     if str(path) not in sys.path:
         sys.path.insert(0, str(path))
@@ -38,122 +45,33 @@ from src.cricket.load_commentary import load_commentary_rows
 from src.training.build_supervised_pairs import prompt_from_commentary_row
 
 
-def _clean_name(value: Any, default: str = "The batter") -> str:
-    text = str(value or "").strip()
-    if not text:
-        return default
-    return " ".join(text.split())
-
-
-def _stable_choice(options: list[str], *keys: Any) -> str:
-    """
-    Pick a deterministic template so the same row always gets the same target.
-
-    This gives variety without making the dataset randomly change every run.
-    """
-    if not options:
-        return ""
-
-    key_text = "|".join(str(key) for key in keys)
-    digest = hashlib.md5(key_text.encode("utf-8")).hexdigest()
-    index = int(digest, 16) % len(options)
-    return options[index]
+CANONICAL_TARGETS = {
+    "dot_ball": "Dot ball. No run.",
+    "single": "One run. The batters take a single.",
+    "double": "Two runs. The batters come back for two.",
+    "triple": "Three runs. The batters run hard.",
+    "boundary_four": "Four. The ball reaches the fence.",
+    "boundary_six": "Six. The ball goes into the stands.",
+    "wicket_bowled": "Bowled. The stumps are hit.",
+    "wicket_caught": "Caught. The catch is taken.",
+    "wicket_lbw": "LBW. The batter is trapped in front.",
+    "run_out": "Run out. The batter is short of the crease.",
+    "wide": "Wide. Extra run conceded.",
+    "no_ball": "No-ball. Extra run conceded.",
+    "bye_or_legbye": "Extras. Runs are added without the bat.",
+    "other": "Play continues.",
+}
 
 
 def controlled_target_from_row(row: dict[str, Any]) -> str:
     """
-    Convert one parsed commentary row into a controlled target sentence.
+    Convert one parsed commentary row into a single canonical target sentence.
 
-    The target must be faithful to the event label. Do not use rich shot details
-    that are not present in the prompt.
+    This intentionally avoids random templates and player names because the
+    earlier T5 runs were mixing suffixes across event classes.
     """
     event_type = row.get("event_type", "other")
-    batter = _clean_name(row.get("batsman_name"))
-    bowler = _clean_name(row.get("bowler_name"), default="the bowler")
-
-    templates = {
-        "dot_ball": [
-            f"Dot ball. {batter} defends.",
-            f"Dot ball. {batter} plays with no run.",
-            f"No run. {batter} cannot score.",
-        ],
-        "single": [
-            f"One run. {batter} picks up a single.",
-            f"One run. {batter} works it away.",
-            f"One run. {batter} rotates the strike.",
-        ],
-        "double": [
-            f"Two runs. {batter} comes back for two.",
-            f"Two runs. {batter} places it into the gap.",
-            f"Two runs. {batter} runs well.",
-        ],
-        "triple": [
-            f"Three runs. {batter} runs hard.",
-            f"Three runs. {batter} finds the gap.",
-            f"Three runs. {batter} comes back for three.",
-        ],
-        "boundary_four": [
-            f"Four. {batter} finds the boundary.",
-            f"Four. {batter} drives it away.",
-            f"Four. {batter} gets it to the rope.",
-        ],
-        "boundary_six": [
-            f"Six. {batter} clears the rope.",
-            f"Six. {batter} sends it over the boundary.",
-            f"Six. {batter} launches it away.",
-        ],
-        "wicket_bowled": [
-            f"Bowled. The stumps are hit.",
-            f"Bowled. {bowler} hits the stumps.",
-            f"Bowled. {batter} is beaten.",
-        ],
-        "wicket_caught": [
-            f"Caught. The catch is taken.",
-            f"Caught. {batter} is caught off {bowler}.",
-            f"Caught. {bowler} gets the wicket.",
-        ],
-        "wicket_lbw": [
-            f"LBW. {batter} is trapped in front.",
-            f"LBW. The umpire gives it.",
-            f"LBW. {bowler} strikes.",
-        ],
-        "run_out": [
-            f"Run out. The batter is short of the crease.",
-            f"Run out. Sharp fielding gets the wicket.",
-            f"Run out. The throw beats the batter.",
-        ],
-        "wide": [
-            f"Wide. {bowler} misses the line.",
-            f"Wide. Extra run conceded.",
-            f"Wide. That is too far away.",
-        ],
-        "no_ball": [
-            f"No-ball. {bowler} oversteps.",
-            f"No-ball. Extra run conceded.",
-            f"No-ball. That must be bowled again.",
-        ],
-        "bye_or_legbye": [
-            "Extras. They pick up runs not off the bat.",
-            "Extras. The batters take the extra run.",
-            "Extras. Runs are added without a shot.",
-        ],
-        "other": [
-            "The ball is played.",
-            f"{batter} plays the delivery.",
-            f"{bowler} completes the delivery.",
-        ],
-    }
-
-    options = templates.get(event_type, templates["other"])
-    return _stable_choice(
-        options,
-        event_type,
-        row.get("batsman_name", ""),
-        row.get("bowler_name", ""),
-        row.get("play_type", ""),
-        row.get("total_runs", ""),
-        row.get("dismissal_type", ""),
-    )
+    return CANONICAL_TARGETS.get(event_type, CANONICAL_TARGETS["other"])
 
 
 def build_pairs_from_csv(
@@ -189,7 +107,7 @@ def build_pairs_from_csv(
                 "batter": row.get("batsman_name", ""),
                 "bowler": row.get("bowler_name", ""),
                 "play_type": row.get("play_type", ""),
-                "target_mode": "controlled",
+                "target_mode": "canonical_controlled",
             }
         )
 
@@ -197,12 +115,18 @@ def build_pairs_from_csv(
 
 
 def write_pairs_csv(pairs: list[dict[str, Any]], output_path: str | Path) -> None:
+    """
+    Save pairs as CSV.
+    """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     pd.DataFrame(pairs).to_csv(output_path, index=False)
 
 
 def write_pairs_jsonl(pairs: list[dict[str, Any]], output_path: str | Path) -> None:
+    """
+    Save pairs as JSONL.
+    """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -213,7 +137,7 @@ def write_pairs_jsonl(pairs: list[dict[str, Any]], output_path: str | Path) -> N
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Build controlled supervised pairs for T5 cricket fine-tuning."
+        description="Build canonical controlled supervised pairs for T5 cricket fine-tuning."
     )
     parser.add_argument("--input", default="raw/train.csv")
     parser.add_argument("--output", default="raw/train_pairs_controlled.csv")
@@ -239,7 +163,7 @@ def main() -> None:
     else:
         write_pairs_csv(pairs, args.output)
 
-    print(f"Wrote {len(pairs)} controlled supervised pairs to {args.output}")
+    print(f"Wrote {len(pairs)} canonical controlled supervised pairs to {args.output}")
 
     if pairs:
         print("\nExample input_text:\n")
