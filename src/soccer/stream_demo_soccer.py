@@ -1,39 +1,31 @@
 import argparse
-import time
+import sys
 from pathlib import Path
 
-from src.soccer.load_soccer_events import load_soccer_match_events
+CURRENT_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = CURRENT_DIR.parent.parent
+
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from src.soccer.classify_soccer_event import classify_soccer_event
 from src.soccer.load_soccer_commentary import build_soccer_commentary_bank
-from src.common.retriever import get_commentary_examples
 from src.soccer.soccer_generator import generate_soccer_commentary
-
+from src.common.retriever import get_commentary_examples
+from src.common.providers import (
+    ProviderNotConfiguredError,
+    build_provider,
+    iter_limited_events,
+)
 
 DEFAULT_COMMENTARY_FILE = "commentary_train_augmented.csv"
 
 
-INTERESTING_EVENT_TYPES = {
-    "goal",
-    "shot",
-    "save",
-    "corner",
-    "free_kick",
-    "foul",
-    "yellow_card",
-    "red_card",
-    "offside",
-    "substitution",
-}
-
-
 def _default_soccer_commentary_path(filename):
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent
-
     candidates = [
-        project_root / "raw_soccer" / "yallashoot" / filename,
+        PROJECT_ROOT / "raw_soccer" / "yallashoot" / filename,
         Path.cwd() / "raw_soccer" / "yallashoot" / filename,
-        script_dir / filename,
+        CURRENT_DIR / filename,
         Path.cwd() / filename,
     ]
 
@@ -41,15 +33,12 @@ def _default_soccer_commentary_path(filename):
         if path.exists():
             return path
 
-    return project_root / "raw_soccer" / "yallashoot" / filename
+    return PROJECT_ROOT / "raw_soccer" / "yallashoot" / filename
 
 
 def _default_soccer_match_path():
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent
-
     candidates = [
-        project_root / "raw_soccer" / "statsbomb" / "events",
+        PROJECT_ROOT / "raw_soccer" / "statsbomb" / "events",
         Path.cwd() / "raw_soccer" / "statsbomb" / "events",
     ]
 
@@ -59,7 +48,9 @@ def _default_soccer_match_path():
             if json_files:
                 return json_files[0]
 
-    raise FileNotFoundError("No StatsBomb event JSON files found in raw_soccer/statsbomb/events")
+    raise FileNotFoundError(
+        "No StatsBomb event JSON files found in raw_soccer/statsbomb/events"
+    )
 
 
 def _clock_label(event):
@@ -68,10 +59,22 @@ def _clock_label(event):
     return f"{minute}:{second:02d}"
 
 
-def _print_demo_header(match_path, commentary_csv_path, max_events, debug, include_passes):
+def _print_demo_header(
+    match_path,
+    commentary_csv_path,
+    max_events,
+    debug,
+    include_passes,
+    provider_name,
+    delay_seconds,
+):
     print("\nReal-Time Soccer Commentary Demo")
     print(f"Match data: {Path(match_path).name}")
     print(f"Commentary corpus: {Path(commentary_csv_path).name}")
+    print(f"Provider: {provider_name}")
+
+    if provider_name == "timed" or delay_seconds > 0:
+        print(f"Pseudo-live delay: {delay_seconds:.2f}s")
 
     if max_events is not None:
         print(f"Showing first {max_events} relevant events")
@@ -96,8 +99,13 @@ def _print_debug_event(event, event_type, commentary, examples, scoreline):
         f"{event.get('team', '')} | "
         f"{event.get('player', '')} -> {event_type}"
     )
+    print(f"Provider: {event.get('_provider', 'unknown')}")
+    print(f"Source: {event.get('_provider_source', 'unknown')}")
+    print(f"Sequence: {event.get('_provider_sequence', 'unknown')}")
+
     if scoreline:
         print(f"Scoreline: {scoreline}")
+
     print(f"Commentary: {commentary}")
 
     if examples:
@@ -124,61 +132,99 @@ def run_soccer_demo(
     debug=False,
     delay_seconds=0.0,
     include_passes=False,
+    provider_name="historical",
 ):
-    events = load_soccer_match_events(match_path)
+    """
+    Run a sequential soccer commentary demo from an event provider.
+
+    Provider modes:
+        historical - read saved StatsBomb events and emit immediately
+        timed      - read saved StatsBomb events with delay between events
+        live       - future live API slot, currently not configured
+    """
     commentary_bank = build_soccer_commentary_bank(commentary_csv_path)
 
-    _print_demo_header(match_path, commentary_csv_path, max_events, debug, include_passes)
+    effective_provider = provider_name
+    if provider_name == "historical" and delay_seconds > 0:
+        effective_provider = "timed"
+
+    provider = build_provider(
+        sport="soccer",
+        provider_name=effective_provider,
+        source_path=match_path,
+        delay_seconds=delay_seconds,
+    )
+
+    _print_demo_header(
+        match_path,
+        commentary_csv_path,
+        max_events,
+        debug,
+        include_passes,
+        effective_provider,
+        delay_seconds,
+    )
 
     shown = 0
     team_order = []
     team_scores = {}
 
-    for event in events:
-        team = event.get("team", "")
-        if team and team not in team_scores:
-            team_scores[team] = 0
-            team_order.append(team)
+    try:
+        for event in iter_limited_events(provider, max_events=None):
+            team = event.get("team", "")
+            if team and team not in team_scores:
+                team_scores[team] = 0
+                team_order.append(team)
 
-        event_type = classify_soccer_event(event)
+            event_type = classify_soccer_event(event)
 
-        if event_type == "other":
-            continue
+            if event_type == "other":
+                continue
 
-        if event_type == "pass" and not include_passes:
-            continue
+            if event_type == "pass" and not include_passes:
+                continue
 
-        if max_events is not None and shown >= max_events:
-            break
+            if max_events is not None and shown >= max_events:
+                break
 
-        if event_type == "goal" and team:
-            team_scores[team] += 1
+            if event_type == "goal" and team:
+                team_scores[team] += 1
 
-        scoreline = _scoreline_text(team_order, team_scores)
-        context = {
-            "goal_scored": event_type == "goal",
-            "scoreline": scoreline,
-        }
+            scoreline = _scoreline_text(team_order, team_scores)
+            context = {
+                "goal_scored": event_type == "goal",
+                "scoreline": scoreline,
+            }
 
-        examples = get_commentary_examples(commentary_bank, event_type, event=event, k=3)
-        commentary = generate_soccer_commentary(event, event_type, examples, context)
+            examples = get_commentary_examples(
+                commentary_bank,
+                event_type,
+                event=event,
+                k=3,
+            )
+            commentary = generate_soccer_commentary(
+                event,
+                event_type,
+                examples,
+                context,
+            )
 
-        if debug:
-            _print_debug_event(event, event_type, commentary, examples, scoreline)
-        else:
-            _print_clean_event(event, commentary)
+            if debug:
+                _print_debug_event(event, event_type, commentary, examples, scoreline)
+            else:
+                _print_clean_event(event, commentary)
 
-        shown += 1
+            shown += 1
 
-        if delay_seconds > 0:
-            time.sleep(delay_seconds)
+    except ProviderNotConfiguredError as exc:
+        print(str(exc))
 
     print("\nEnd of soccer demo.")
 
 
 def _parse_args():
     parser = argparse.ArgumentParser(
-        description="Stream a clean soccer commentary demo from StatsBomb event data."
+        description="Stream a clean soccer commentary demo from an event provider."
     )
     parser.add_argument(
         "--match",
@@ -191,6 +237,12 @@ def _parse_args():
         help="Path to the soccer commentary CSV.",
     )
     parser.add_argument(
+        "--provider",
+        choices=["historical", "timed", "live"],
+        default="historical",
+        help="Event provider mode.",
+    )
+    parser.add_argument(
         "--max-events",
         type=int,
         default=20,
@@ -199,13 +251,13 @@ def _parse_args():
     parser.add_argument(
         "--debug",
         action="store_true",
-        help="Show labels, retrieved examples, and scoreline trace output.",
+        help="Show labels, provider info, retrieved examples, and scoreline trace output.",
     )
     parser.add_argument(
         "--delay",
         type=float,
         default=0.0,
-        help="Seconds to pause between events for a live-demo effect.",
+        help="Seconds to pause between events for timed pseudo-live replay.",
     )
     parser.add_argument(
         "--include-passes",
@@ -226,4 +278,5 @@ if __name__ == "__main__":
         debug=args.debug,
         delay_seconds=args.delay,
         include_passes=args.include_passes,
+        provider_name=args.provider,
     )
