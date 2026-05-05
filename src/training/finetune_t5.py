@@ -17,6 +17,7 @@ Example balanced laptop run:
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import random
 import sys
@@ -103,7 +104,7 @@ class CommentaryPairsDataset(Dataset):
 
 
 def _event_counts(pairs: list[dict[str, Any]]) -> dict[str, int]:
-    return dict(sorted(Counter(pair.get("event_type", "other") for pair in pairs).items()))
+    return dict(sorted(Counter(_pair_group_label(pair) for pair in pairs).items()))
 
 
 def _print_event_counts(title: str, pairs: list[dict[str, Any]]) -> None:
@@ -131,7 +132,7 @@ def _balance_pairs(
     rng = random.Random(seed)
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for pair in pairs:
-        groups[pair.get("event_type", "other")].append(pair)
+        groups[_pair_group_label(pair)].append(pair)
 
     event_types = sorted(groups)
     if samples_per_event <= 0:
@@ -174,10 +175,79 @@ def _maybe_limit(
 
     return pairs
 
+def _pair_group_label(pair: dict[str, Any]) -> str:
+    """
+    Return a balancing/counting label.
 
-def _load_split(path: str | Path, limit: int, *, seed: int, shuffle: bool) -> list[dict[str, Any]]:
-    pairs = build_pairs_from_csv(path)
-    return _maybe_limit(pairs, limit, seed=seed, shuffle=shuffle)
+    For multisport pairs, include sport so soccer:goal and cricket labels can
+    be counted separately. Older cricket pairs may not have a sport field, so
+    they fall back to event_type only.
+    """
+    sport = str(pair.get("sport", "")).strip()
+    event_type = str(pair.get("event_type", "other")).strip() or "other"
+
+    if sport:
+        return f"{sport}:{event_type}"
+
+    return event_type
+
+
+def _load_pairs_csv(path: str | Path) -> list[dict[str, Any]]:
+    """
+    Load prebuilt supervised pairs from CSV.
+
+    Required columns:
+        input_text
+        target_text
+        event_type
+
+    Optional columns like sport, player, team, batter, bowler, and target_mode
+    are preserved.
+    """
+    path = Path(path)
+
+    if not path.exists():
+        raise FileNotFoundError(f"Pairs CSV not found: {path}")
+
+    pairs: list[dict[str, Any]] = []
+
+    with path.open("r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+
+        required = {"input_text", "target_text", "event_type"}
+        fieldnames = set(reader.fieldnames or [])
+        missing = required - fieldnames
+
+        if missing:
+            raise ValueError(
+                f"Pairs CSV {path} is missing required columns: {sorted(missing)}"
+            )
+
+        for row in reader:
+            input_text = str(row.get("input_text", "")).strip()
+            target_text = str(row.get("target_text", "")).strip()
+
+            if not input_text or not target_text:
+                continue
+
+            pairs.append(dict(row))
+
+    return pairs
+
+def _load_split(
+        path: str | Path,
+        limit: int,
+        *,
+        seed: int,
+        shuffle: bool,
+        pairs_csv: str | Path = "",
+    ) -> list[dict[str, Any]]:
+        if pairs_csv:
+            pairs = _load_pairs_csv(pairs_csv)
+        else:
+            pairs = build_pairs_from_csv(path)
+
+        return _maybe_limit(pairs, limit, seed=seed, shuffle=shuffle)
 
 
 def _make_training_args(Seq2SeqTrainingArguments: Any, args: argparse.Namespace) -> Any:
@@ -225,6 +295,21 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--train-csv", default="raw/train.csv")
     parser.add_argument("--validation-csv", default="raw/validation.csv")
     parser.add_argument("--test-csv", default="raw/test.csv")
+    parser.add_argument(
+    "--train-pairs-csv",
+    default="",
+    help="Optional prebuilt training pairs CSV with input_text,target_text,event_type columns.",
+    )
+    parser.add_argument(
+        "--validation-pairs-csv",
+        default="",
+        help="Optional prebuilt validation pairs CSV with input_text,target_text,event_type columns.",
+    )
+    parser.add_argument(
+        "--test-pairs-csv",
+        default="",
+        help="Optional prebuilt test pairs CSV with input_text,target_text,event_type columns.",
+    )
     parser.add_argument("--model-name", default="google/flan-t5-small")
     parser.add_argument("--output-dir", default="models/t5-cricket-commentary-best")
     parser.add_argument("--epochs", type=float, default=1.0)
@@ -265,7 +350,13 @@ def main() -> None:
     # For balanced training, load the full training set first, balance it, then
     # optionally cap it. For eval/test, keep the natural distribution.
     if args.balance_train:
-        train_pairs_raw = build_pairs_from_csv(args.train_csv)
+        train_pairs_raw = _load_split(
+            args.train_csv,
+            0,
+            seed=args.seed,
+            shuffle=False,
+            pairs_csv=args.train_pairs_csv,
+        )
         if args.show_event_counts:
             _print_event_counts("Raw train", train_pairs_raw)
         train_pairs = _balance_pairs(
@@ -282,6 +373,7 @@ def main() -> None:
             args.max_train_samples,
             seed=args.seed,
             shuffle=args.shuffle,
+            pairs_csv=args.train_pairs_csv,
         )
 
     eval_pairs = _load_split(
@@ -289,13 +381,16 @@ def main() -> None:
         args.max_eval_samples,
         seed=args.seed,
         shuffle=args.shuffle,
-    )
+        pairs_csv=args.validation_pairs_csv,
+        )   
+
     test_pairs = _load_split(
         args.test_csv,
         args.max_test_samples,
         seed=args.seed,
         shuffle=args.shuffle,
-    )
+        pairs_csv=args.test_pairs_csv,
+        )
 
     if not train_pairs:
         raise SystemExit("No training pairs found. Check --train-csv.")
